@@ -11,33 +11,43 @@ function getLocalIp()
         {
             if (net.family === "IPv4" && !net.internal) 
             {
-            return net.address
+                return net.address
             }
         }
     }
     return "127.0.0.1"
 }
 
+function updateEnvFile(filePath, key, value) 
+{
+    let env = ""
+
+    if (fs.existsSync(filePath)) 
+    {
+        env = fs.readFileSync(filePath, "utf-8")
+    }
+
+    const newLine = `${key}=${value}`
+
+    if (env.includes(key)) 
+    {
+        env = env.replace(new RegExp(`${key}=.*`, "g"), newLine)
+    } 
+    else 
+    {
+        env += `\n${newLine}\n`
+    }
+
+    fs.writeFileSync(filePath, env)
+    console.log(`✅ ${key} set in ${filePath}:`, value)
+}
+
 const ip = getLocalIp()
-const envPath = path.join(__dirname, "../.env")
 
-let env = ""
-if (fs.existsSync(envPath)) 
-{
-    env = fs.readFileSync(envPath, "utf-8")
-}
+// Frontend .env
+const frontendEnvPath = path.join(__dirname, "../.env")
+updateEnvFile(frontendEnvPath, "EXPO_PUBLIC_API_URL", `http://${ip}:5000`)
 
-const newLine = `EXPO_PUBLIC_API_URL=http://${ip}:5000`
-
-if (env.includes("EXPO_PUBLIC_API_URL")) 
-{
-    env = env.replace(/EXPO_PUBLIC_API_URL=.*/g, newLine)
-} 
-else 
-{
-    env += `\n${newLine}\n`
-}
-
-fs.writeFileSync(envPath, env)
-
-console.log("✅ API URL set to:", newLine)
+// Backend .env
+const backendEnvPath = path.join(__dirname, "../corppay-backend/.env")
+updateEnvFile(backendEnvPath, "API_BASE_URL", `http://${ip}:5000`)

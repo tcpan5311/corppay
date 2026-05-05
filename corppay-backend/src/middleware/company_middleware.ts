@@ -5,22 +5,19 @@ const MAX_REQUESTS = 50
 
 type RateLimitEntry =
 {
-	count:       number
-	windowStart: number
+	count:       number | null
+	windowStart: number | null
 }
 
-// Creates a new rate limit entry with count initialised to 1 for the given window start time.
+// Creates a new RateLimitEntry initialized with a count of one and the given window start time.
 function createRateLimitEntry(windowStart: number): RateLimitEntry
 {
-	return {
-		count:       1,
-		windowStart: windowStart,
-	}
+	return { count: 1, windowStart: windowStart }
 }
 
 const ipMap = new Map<string, RateLimitEntry>()
 
-// Express middleware that enforces a per-IP sliding-window rate limit on incoming requests.
+// Enforces a sliding-window rate limit per IP address, rejecting requests that exceed the threshold.
 export function companyRateLimit(req: Request, res: Response, next: NextFunction): void
 {
 	let ip = req.ip
@@ -44,8 +41,9 @@ export function companyRateLimit(req: Request, res: Response, next: NextFunction
 		return
 	}
 
-	const existing     = ipMap.get(ip) as RateLimitEntry
-	const windowExpired = now - existing.windowStart >= WINDOW_MS
+	const existing = ipMap.get(ip) as RateLimitEntry
+
+	const windowExpired = existing.windowStart !== null && now - existing.windowStart >= WINDOW_MS
 
 	if (windowExpired)
 	{
@@ -54,12 +52,16 @@ export function companyRateLimit(req: Request, res: Response, next: NextFunction
 		return
 	}
 
-	if (existing.count >= MAX_REQUESTS)
+	if (existing.count !== null && existing.count >= MAX_REQUESTS)
 	{
 		res.status(429).json({ error: 'Too many requests. Please try again later.' })
 		return
 	}
 
-	existing.count += 1
+	if (existing.count !== null)
+	{
+		existing.count += 1
+	}
+
 	next()
 }

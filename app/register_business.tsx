@@ -1,16 +1,8 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import React, { useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, } from 'react-native';
+import { FormErrors, TouchedFields, createFormErrors, createTouchedFields, hasErrors, normalizeIcPassport, touchAllFields, validateAllFields, validateCompanyName, validateDirectorRole, validateEntityType, validateIcPassport, validateOwnershipPct, validateRegisteredAddress, validateRegisteredEmail, validateSsmNumber, validateUploadedFile } from '../lib/validation/registerBusiness';
 
 type EntityType   = 'sdn_bhd' | 'sole_proprietor'
 type DirectorRole = 'director' | 'owner'
@@ -25,6 +17,7 @@ type UploadedFile =
 	webFile:  File | null
 }
 
+// Creates a fully initialized UploadedFile with all fields set to null.
 function createUploadedFile(): UploadedFile
 {
 	return {
@@ -45,14 +38,10 @@ type SectionHeaderProps =
 	iconColor: string | null
 }
 
+// Creates a fully initialized SectionHeaderProps with all fields set to null.
 function createSectionHeaderProps(): SectionHeaderProps
 {
-	return {
-		icon:      null,
-		label:     null,
-		iconBg:    null,
-		iconColor: null,
-	}
+	return { icon: null, label: null, iconBg: null, iconColor: null }
 }
 
 type FieldLabelProps =
@@ -61,12 +50,10 @@ type FieldLabelProps =
 	optional: boolean | null
 }
 
+// Creates a fully initialized FieldLabelProps with all fields set to null.
 function createFieldLabelProps(): FieldLabelProps
 {
-	return {
-		label:    null,
-		optional: null,
-	}
+	return { label: null, optional: null }
 }
 
 type TextFieldInputProps =
@@ -75,12 +62,15 @@ type TextFieldInputProps =
 	placeholder:    string | null
 	value:          string | null
 	onChangeText:   ((v: string) => void) | null
+	onBlur:         (() => void) | null
 	keyboardType:   React.ComponentProps<typeof TextInput>['keyboardType'] | null
 	autoCapitalize: React.ComponentProps<typeof TextInput>['autoCapitalize'] | null
 	multiline:      boolean | null
 	numberOfLines:  number | null
+	error:          string | null
 }
 
+// Creates a fully initialized TextFieldInputProps with all fields set to null.
 function createTextFieldInputProps(): TextFieldInputProps
 {
 	return {
@@ -88,10 +78,12 @@ function createTextFieldInputProps(): TextFieldInputProps
 		placeholder:    null,
 		value:          null,
 		onChangeText:   null,
+		onBlur:         null,
 		keyboardType:   null,
 		autoCapitalize: null,
 		multiline:      null,
 		numberOfLines:  null,
+		error:          null,
 	}
 }
 
@@ -102,13 +94,10 @@ type SegmentOptionItem<T> =
 	icon:  React.ComponentProps<typeof MaterialCommunityIcons>['name'] | null
 }
 
+// Creates a fully initialized SegmentOptionItem with all fields set to null.
 function createSegmentOptionItem<T>(): SegmentOptionItem<T>
 {
-	return {
-		value: null,
-		label: null,
-		icon:  null,
-	}
+	return { value: null, label: null, icon: null }
 }
 
 type SegmentedControlProps<T extends string> =
@@ -116,29 +105,26 @@ type SegmentedControlProps<T extends string> =
 	options:  SegmentOptionItem<T>[]
 	value:    T | null
 	onChange: ((v: T) => void) | null
+	error:    string | null
 }
 
+// Creates a fully initialized SegmentedControlProps with an empty options array and null fields.
 function createSegmentedControlProps<T extends string>(): SegmentedControlProps<T>
 {
-	return {
-		options:  [],
-		value:    null,
-		onChange: null,
-	}
+	return { options: [], value: null, onChange: null, error: null }
 }
 
 type UploadBoxProps =
 {
 	file:    UploadedFile | null
 	onPress: (() => void) | null
+	error:   string | null
 }
 
+// Creates a fully initialized UploadBoxProps with all fields set to null.
 function createUploadBoxProps(): UploadBoxProps
 {
-	return {
-		file:    null,
-		onPress: null,
-	}
+	return { file: null, onPress: null, error: null }
 }
 
 type SubmitRegistrationParams =
@@ -156,6 +142,7 @@ type SubmitRegistrationParams =
 	icDoc:             UploadedFile | null
 }
 
+// Creates a fully initialized SubmitRegistrationParams with all fields set to null.
 function createSubmitRegistrationParams(): SubmitRegistrationParams
 {
 	return {
@@ -173,6 +160,19 @@ function createSubmitRegistrationParams(): SubmitRegistrationParams
 	}
 }
 
+type ToastProps =
+{
+	visible: boolean
+	message: string
+}
+
+// Creates a fully initialized ToastProps with visible set to false and an empty message.
+function createToastProps(): ToastProps
+{
+	return { visible: false, message: '' }
+}
+
+// Formats a byte count into a human-readable string with the appropriate size unit.
 function formatBytes(bytes: number | null): string
 {
 	if (bytes === null)  return '0 B'
@@ -181,18 +181,21 @@ function formatBytes(bytes: number | null): string
 	return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
+// Returns the asset size as a number, defaulting to zero when the value is absent.
 function resolveAssetSize(value: number | null | undefined): number
 {
 	if (value === null || value === undefined) return 0
 	return value
 }
 
+// Returns the asset MIME type string, defaulting to octet-stream when the value is absent.
 function resolveAssetMimeType(value: string | null | undefined): string
 {
 	if (value === null || value === undefined) return 'application/octet-stream'
 	return value
 }
 
+// Extracts a user-friendly error message from an unknown thrown value.
 function resolveErrorMessage(e: unknown): string
 {
 	const err = e as any
@@ -203,6 +206,7 @@ function resolveErrorMessage(e: unknown): string
 	return 'Registration failed. Please try again.'
 }
 
+// Extracts a user-friendly error message from an API error response body.
 function resolveApiErrorMessage(data: any): string
 {
 	if (data !== null && data.error !== null)
@@ -220,56 +224,62 @@ function resolveApiErrorMessage(data: any): string
 	return 'Registration failed. Please try again.'
 }
 
+// Opens a platform-appropriate document picker and passes the selected file to the setter.
 async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 {
 	if (Platform.OS === 'web')
 	{
-		await new Promise<void>((resolve) =>
-		{
-			const input  = document.createElement('input')
-			input.type   = 'file'
-			input.accept = 'application/pdf,image/jpeg,image/png'
-
-			let settled = false
-			const settle = () =>
+		await new Promise<void>(
+			(resolve) =>
 			{
-				if (!settled)
+				const input  = document.createElement('input')
+				input.type   = 'file'
+				input.accept = 'application/pdf,image/jpeg,image/png'
+
+				let settled = false
+
+				const settle = () =>
 				{
-					settled = true
+					if (!settled)
+					{
+						settled = true
+						resolve()
+					}
+				}
+
+				window.addEventListener('focus', settle, { once: true })
+
+				input.onchange = (e) =>
+				{
+					settled        = true
+					const inputEl  = e.target as HTMLInputElement
+					const fileList = inputEl.files
+					if (fileList !== null && fileList.length > 0)
+					{
+						const file   = fileList[0]
+						const result = createUploadedFile()
+						result.name     = file.name
+						result.size     = formatBytes(file.size)
+						result.uri      = URL.createObjectURL(file)
+						result.mimeType = file.type !== '' ? file.type : 'application/octet-stream'
+						result.bytes    = file.size
+						result.webFile  = file
+						setter(result)
+					}
 					resolve()
 				}
-			}
-			window.addEventListener('focus', settle, { once: true })
 
-			input.onchange = (e) =>
-			{
-				settled        = true
-				const inputEl  = e.target as HTMLInputElement
-				const fileList = inputEl.files
-				if (fileList !== null && fileList.length > 0)
-				{
-					const file   = fileList[0]
-					const result = createUploadedFile()
-					result.name     = file.name
-					result.size     = formatBytes(file.size)
-					result.uri      = URL.createObjectURL(file)
-					result.mimeType = file.type !== '' ? file.type : 'application/octet-stream'
-					result.bytes    = file.size
-					result.webFile  = file
-					setter(result)
-				}
-				resolve()
+				input.click()
 			}
-
-			input.click()
-		})
+		)
 	}
 	else
 	{
 		try
 		{
 			const DocumentPicker = await import('expo-document-picker')
-			const result = await DocumentPicker.getDocumentAsync({
+			const result = await DocumentPicker.getDocumentAsync
+			({
 				type:                 ['application/pdf', 'image/*'],
 				copyToCacheDirectory: true,
 				multiple:             false,
@@ -296,7 +306,78 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
+// Submits the company registration form data and uploaded documents to the API directly (legacy route).
 async function submitRegistration(params: SubmitRegistrationParams): Promise<any>
+{
+	const form = new FormData()
+
+	if (params.companyName !== null)       form.append('name',                params.companyName)
+	if (params.ssmNumber !== null)         form.append('ssmNumber',           params.ssmNumber)
+	if (params.entityType !== null)        form.append('entityType',          params.entityType)
+	if (params.registeredAddress !== null) form.append('registeredAddress',   params.registeredAddress)
+	if (params.icPassport !== null)        form.append('director.icPassport', params.icPassport)
+	if (params.directorRole !== null)      form.append('director.role',       params.directorRole)
+	if (params.submittedBy !== null)       form.append('submittedBy',         params.submittedBy)
+
+	if (params.ownershipPct !== null && params.ownershipPct.trim() !== '')
+	{
+		form.append('director.ownershipPct', params.ownershipPct.trim())
+	}
+
+	if (params.ssmDoc !== null)
+	{
+		if (params.ssmDoc.webFile !== null)
+		{
+			form.append('ssmDoc', params.ssmDoc.webFile, params.ssmDoc.webFile.name)
+		}
+		else if (params.ssmDoc.uri !== null)
+		{
+			form.append('ssmDoc',
+			{
+				uri:  params.ssmDoc.uri,
+				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
+				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	if (params.icDoc !== null)
+	{
+		if (params.icDoc.webFile !== null)
+		{
+			form.append('icDoc', params.icDoc.webFile, params.icDoc.webFile.name)
+		}
+		else if (params.icDoc.uri !== null)
+		{
+			form.append('icDoc',
+			{
+				uri:  params.icDoc.uri,
+				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
+				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
+
+	const response = await fetch(`${API_BASE}/companies/register`, {
+		method:  'POST',
+		headers: { Authorization: authHeader },
+		body:    form,
+	})
+
+	const data = await response.json()
+
+	if (!response.ok)
+	{
+		throw new Error(resolveApiErrorMessage(data))
+	}
+
+	return data
+}
+
+// Submits the registration form to the email-verification endpoint, which gates company creation behind email confirmation.
+async function initiateRegistration(params: SubmitRegistrationParams): Promise<any>
 {
 	const form = new FormData()
 
@@ -337,7 +418,8 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<any
 		}
 		else if (params.icDoc.uri !== null)
 		{
-			form.append('icDoc', {
+			form.append('icDoc',
+			{
 				uri:  params.icDoc.uri,
 				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
 				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
@@ -347,7 +429,7 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<any
 
 	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
 
-	const response = await fetch(`${API_BASE}/companies/register`, {
+	const response = await fetch(`${API_BASE}/companies/initiate-register`, {
 		method:  'POST',
 		headers: { Authorization: authHeader },
 		body:    form,
@@ -363,6 +445,7 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<any
 	return data
 }
 
+// Renders a labeled section header with a colored icon badge.
 function SectionHeader(props: SectionHeaderProps)
 {
 	return (
@@ -386,6 +469,7 @@ function SectionHeader(props: SectionHeaderProps)
 	)
 }
 
+// Renders a form field label with an optional indicator when the field is not required.
 function FieldLabel(props: FieldLabelProps)
 {
 	return (
@@ -398,6 +482,31 @@ function FieldLabel(props: FieldLabelProps)
 	)
 }
 
+// Renders an inline field error message with a warning icon.
+function FieldError({ message }: { message: string | null })
+{
+	if (message === null) return null
+
+	return (
+		<View className="flex-row items-center mt-1.5 ml-1">
+			<MaterialCommunityIcons
+				name="alert-circle-outline"
+				size={13}
+				color="#DC2626"
+				style={{ marginRight: 4 }}
+			/>
+			<Text
+				className="text-red-600 text-xs flex-1"
+				accessibilityRole="alert"
+				accessibilityLiveRegion="polite"
+			>
+				{message}
+			</Text>
+		</View>
+	)
+}
+
+// Renders a styled text input field with an optional leading icon, blur handler, and inline error.
 function TextFieldInput(props: TextFieldInputProps)
 {
 	const isMultiline          = props.multiline === true
@@ -406,142 +515,380 @@ function TextFieldInput(props: TextFieldInputProps)
 	const resolvedLines        = props.numberOfLines !== null ? props.numberOfLines : 1
 	const resolvedPlaceholder  = props.placeholder !== null ? props.placeholder : ''
 	const resolvedValue        = props.value !== null ? props.value : ''
-	const resolvedOnChange     = props.onChangeText !== null ? props.onChangeText : (_v: string) =>
-	{
-	}
+	const hasError             = props.error !== null
+
+	const noopChangeHandler = (_v: string) => {}
+	const noopBlurHandler   = () => {}
+
+	const resolvedOnChange = props.onChangeText !== null ? props.onChangeText : noopChangeHandler
+	const resolvedOnBlur   = props.onBlur       !== null ? props.onBlur       : noopBlurHandler
 
 	return (
-		<View className={`flex-row items-${isMultiline ? 'start' : 'center'} bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5`}>
-			{props.icon !== null && (
-				<MaterialCommunityIcons
-					name={props.icon}
-					size={18}
-					color="#9CA3AF"
-					style={{ marginRight: 10, marginTop: isMultiline ? 2 : 0 }}
+		<View>
+			<View
+				className={`flex-row items-${isMultiline ? 'start' : 'center'} bg-gray-50 border rounded-xl px-4 py-3.5 ${
+					hasError ? 'border-red-400 bg-red-50' : 'border-gray-200'
+				}`}
+			>
+				{props.icon !== null && (
+					<MaterialCommunityIcons
+						name={props.icon}
+						size={18}
+						color={hasError ? '#F87171' : '#9CA3AF'}
+						style={{ marginRight: 10, marginTop: isMultiline ? 2 : 0 }}
+					/>
+				)}
+				<TextInput
+					className="flex-1 text-gray-800 text-sm"
+					placeholder={resolvedPlaceholder}
+					placeholderTextColor="#9CA3AF"
+					value={resolvedValue}
+					onChangeText={resolvedOnChange}
+					onBlur={resolvedOnBlur}
+					keyboardType={resolvedKeyboardType}
+					autoCapitalize={resolvedCapitalize}
+					autoCorrect={false}
+					multiline={isMultiline}
+					numberOfLines={resolvedLines}
+					textAlignVertical={isMultiline ? 'top' : 'center'}
+					accessibilityLabel={resolvedPlaceholder}
+					{...(Platform.OS === 'web' ? { autoComplete: 'off' } : {})}
 				/>
-			)}
-			<TextInput
-				className="flex-1 text-gray-800 text-sm"
-				placeholder={resolvedPlaceholder}
-				placeholderTextColor="#9CA3AF"
-				value={resolvedValue}
-				onChangeText={resolvedOnChange}
-				keyboardType={resolvedKeyboardType}
-				autoCapitalize={resolvedCapitalize}
-				autoCorrect={false}
-				multiline={isMultiline}
-				numberOfLines={resolvedLines}
-				textAlignVertical={isMultiline ? 'top' : 'center'}
-				{...(Platform.OS === 'web' ? { autoComplete: 'off' } : {})}
-			/>
+			</View>
+			<FieldError message={props.error} />
 		</View>
 	)
 }
 
+// Renders a segmented toggle control allowing selection of one option from a predefined set.
 function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 {
 	return (
-		<View className="flex-row bg-gray-100 rounded-full p-1">
-			{props.options.map((opt) =>
-			{
-				const active = props.value !== null && opt.value !== null && props.value === opt.value
-				return (
-					<TouchableOpacity
-						key={opt.value !== null ? opt.value : ''}
-						className={`flex-1 flex-row items-center justify-center py-2.5 rounded-full ${
-							active ? 'bg-white shadow-sm' : 'bg-transparent'
-						}`}
-						onPress={() =>
+		<View>
+			<View
+				className={`flex-row bg-gray-100 rounded-full p-1 ${
+					props.error !== null ? 'border border-red-400' : ''
+				}`}
+			>
+				{props.options.map(
+					(opt) =>
+					{
+						const active = props.value !== null && opt.value !== null && props.value === opt.value
+
+						const handleOptionPress = () =>
 						{
 							if (props.onChange !== null && opt.value !== null)
 							{
 								props.onChange(opt.value)
 							}
-						}}
-					>
-						{opt.icon !== null && (
-							<MaterialCommunityIcons
-								name={opt.icon}
-								size={16}
-								color={active ? '#374151' : '#9CA3AF'}
-								style={{ marginRight: 5 }}
-							/>
-						)}
-						<Text className={`text-sm font-medium ${active ? 'text-gray-800' : 'text-gray-400'}`}>
-							{opt.label !== null ? opt.label : ''}
-						</Text>
-					</TouchableOpacity>
-				)
-			})}
+						}
+
+						return (
+							<TouchableOpacity
+								key={opt.value !== null ? opt.value : ''}
+								className={`flex-1 flex-row items-center justify-center py-2.5 rounded-full ${
+									active ? 'bg-white shadow-sm' : 'bg-transparent'
+								}`}
+								onPress={handleOptionPress}
+								accessibilityRole="radio"
+								accessibilityState={{ selected: active }}
+								accessibilityLabel={opt.label !== null ? opt.label : ''}
+							>
+								{opt.icon !== null && (
+									<MaterialCommunityIcons
+										name={opt.icon}
+										size={16}
+										color={active ? '#374151' : '#9CA3AF'}
+										style={{ marginRight: 5 }}
+									/>
+								)}
+								<Text className={`text-sm font-medium ${active ? 'text-gray-800' : 'text-gray-400'}`}>
+									{opt.label !== null ? opt.label : ''}
+								</Text>
+							</TouchableOpacity>
+						)
+					}
+				)}
+			</View>
+			<FieldError message={props.error} />
 		</View>
 	)
 }
 
+// Renders a file upload drop zone that displays file details once a file has been selected.
 function UploadBox(props: UploadBoxProps)
 {
 	const webCursorStyle = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null
+	const hasError       = props.error !== null
+
+	const noopPressHandler = () => {}
 
 	return (
-		<TouchableOpacity
-			onPress={props.onPress !== null ? props.onPress : () =>
-			{
-			}}
-			className="bg-gray-50 border border-dashed border-gray-300 rounded-xl py-6 items-center justify-center"
-			activeOpacity={0.7}
-			style={webCursorStyle}
-		>
-			{props.file !== null ? (
-				<>
-					<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
-						<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
-					</View>
-					<Text className="text-gray-800 text-sm font-medium">
-						{props.file.name !== null ? props.file.name : ''}
-					</Text>
-					<Text className="text-gray-400 text-xs mt-1">
-						{props.file.size !== null ? props.file.size : ''}
-					</Text>
-				</>
-			) : (
-				<>
-					<View className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center mb-2">
-						<MaterialCommunityIcons name="upload-outline" size={22} color="#9CA3AF" />
-					</View>
-					<Text className="text-gray-600 text-sm font-medium">
-						{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
-					</Text>
-					<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
-				</>
-			)}
-		</TouchableOpacity>
+		<View>
+			<TouchableOpacity
+				onPress={props.onPress !== null ? props.onPress : noopPressHandler}
+				className={`border border-dashed rounded-xl py-6 items-center justify-center ${
+					hasError
+						? 'bg-red-50 border-red-400'
+						: 'bg-gray-50 border-gray-300'
+				}`}
+				activeOpacity={0.7}
+				style={webCursorStyle}
+				accessibilityRole="button"
+			>
+				{props.file !== null ? (
+					<>
+						<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
+							<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
+						</View>
+						<Text className="text-gray-800 text-sm font-medium">
+							{props.file.name !== null ? props.file.name : ''}
+						</Text>
+						<Text className="text-gray-400 text-xs mt-1">
+							{props.file.size !== null ? props.file.size : ''}
+						</Text>
+					</>
+				) : (
+					<>
+						<View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${hasError ? 'bg-red-100' : 'bg-gray-100'}`}>
+							<MaterialCommunityIcons
+								name="upload-outline"
+								size={22}
+								color={hasError ? '#F87171' : '#9CA3AF'}
+							/>
+						</View>
+						<Text className="text-gray-600 text-sm font-medium">
+							{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
+						</Text>
+						<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
+					</>
+				)}
+			</TouchableOpacity>
+			<FieldError message={props.error} />
+		</View>
 	)
 }
 
+// Renders an animated floating toast notification that fades in and out at the bottom of the screen.
+function Toast(props: ToastProps)
+{
+	const opacity = useRef(new Animated.Value(0)).current
+
+	useEffect(
+		() =>
+		{
+			if (props.visible)
+			{
+				Animated.sequence([
+					Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+					Animated.delay(1800),
+					Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+				]).start()
+			}
+			else
+			{
+				opacity.setValue(0)
+			}
+		},
+		[props.visible]
+	)
+
+	if (!props.visible) return null
+
+	return (
+		<Animated.View
+			className="absolute bottom-10 left-6 right-6 bg-gray-900 rounded-2xl px-5 py-4 flex-row items-center self-center shadow-lg"
+			style={{ opacity, zIndex: 9999, elevation: 20, maxWidth: 400, alignSelf: 'center' }}
+			pointerEvents="none"
+		>
+			<MaterialCommunityIcons
+				name="check-circle-outline"
+				size={20}
+				color="#4ADE80"
+				style={{ marginRight: 10 }}
+			/>
+			<Text className="text-white text-sm font-medium flex-1">
+				{props.message}
+			</Text>
+		</Animated.View>
+	)
+}
+
+// Renders the full business registration screen with company, director, and document upload sections.
 export default function RegisterBusinessScreen()
 {
 	const router = useRouter()
 
 	const [companyName,       setCompanyName]       = useState<string>('')
 	const [ssmNumber,         setSsmNumber]         = useState<string>('')
-	const [entityType,        setEntityType]        = useState<EntityType>('sdn_bhd')
+	const [entityType,        setEntityType]        = useState<EntityType | null>(null)
 	const [registeredAddress, setRegisteredAddress] = useState<string>('')
 	const [icPassport,        setIcPassport]        = useState<string>('')
-	const [directorRole,      setDirectorRole]      = useState<DirectorRole>('director')
+	const [directorRole, setDirectorRole] 			= useState<DirectorRole | null>(null)
 	const [ownershipPct,      setOwnershipPct]      = useState<string>('')
 	const [registeredEmail,   setRegisteredEmail]   = useState<string>('')
 	const [ssmDoc,            setSsmDoc]            = useState<UploadedFile | null>(null)
 	const [icDoc,             setIcDoc]             = useState<UploadedFile | null>(null)
-	const [isSubmitting,      setIsSubmitting]      = useState<boolean>(false)
-	const [errorMessage,      setErrorMessage]      = useState<string | null>(null)
-	const [successBanner,     setSuccessBanner]     = useState<boolean>(false)
+	const [isSubmitting,    setIsSubmitting]    = useState<boolean>(false)
+	const [errorMessage,    setErrorMessage]    = useState<string | null>(null)
+	const [emailSentBanner, setEmailSentBanner] = useState<boolean>(false)
+	const [toastVisible,    setToastVisible]    = useState<boolean>(false)
+	const [errors,  setErrors]  = useState<FormErrors>(createFormErrors())
+	const [touched, setTouched] = useState<TouchedFields>(createTouchedFields())
 
-	async function handlePickDocument(setter: (f: UploadedFile) => void)
+	// Recomputes every field error from the latest form values.
+	function revalidateAll(
+		cn: string,
+		ssm: string,
+		et: EntityType | null,
+		addr: string,
+		email: string,
+		ic: string,
+		role:  DirectorRole | null,
+		pct: string,
+		sDoc: UploadedFile | null,
+		iDoc: UploadedFile | null,
+	): FormErrors
 	{
-		await pickDocument(setter)
+		return validateAllFields(cn, ssm, et, addr, email, ic, role, pct, sDoc, iDoc)
 	}
 
+	// Marks a single field as touched and re-validates that field immediately.
+	function handleBlur(field: keyof TouchedFields)
+	{
+		setTouched((prev) => ({ ...prev, [field]: true }))
+
+		const next = revalidateAll
+		(
+			companyName, ssmNumber, entityType, registeredAddress,
+			registeredEmail, icPassport, directorRole, ownershipPct, ssmDoc, icDoc,
+		)
+		setErrors(next)
+	}
+
+	function visibleError(field: keyof FormErrors): string | null
+	{
+		if (!touched[field]) return null
+		return errors[field]
+	}
+
+	const handleCompanyNameChange = (v: string) =>
+	{
+		setCompanyName(v)
+		if (touched.companyName)
+		{
+			setErrors((prev) => ({ ...prev, companyName: validateCompanyName(v) }))
+		}
+	}
+
+	const handleSsmNumberChange = (v: string) =>
+	{
+		setSsmNumber(v)
+		if (touched.ssmNumber)
+		{
+			setErrors((prev) => ({ ...prev, ssmNumber: validateSsmNumber(v) }))
+		}
+	}
+
+	const handleEntityTypeChange = (v: EntityType) =>
+	{
+		setEntityType(v)
+		setTouched((prev) => ({ ...prev, entityType: true }))
+		setErrors((prev) => ({ ...prev, entityType: validateEntityType(v) }))
+	}
+
+	const handleDirectorRoleChange = (v: DirectorRole) =>
+	{
+		setDirectorRole(v)
+		setTouched((prev) => ({ ...prev, directorRole: true }))
+		setErrors((prev) => ({ ...prev, directorRole: validateDirectorRole(v) }))
+	}
+
+	const handleRegisteredAddressChange = (v: string) =>
+	{
+		setRegisteredAddress(v)
+		if (touched.registeredAddress)
+		{
+			setErrors((prev) => ({ ...prev, registeredAddress: validateRegisteredAddress(v) }))
+		}
+	}
+
+	const handleRegisteredEmailChange = (v: string) =>
+	{
+		setRegisteredEmail(v)
+		if (touched.registeredEmail)
+		{
+			setErrors((prev) => ({ ...prev, registeredEmail: validateRegisteredEmail(v) }))
+		}
+	}
+
+	const handleIcPassportChange = (v: string) =>
+	{
+		const normalized = normalizeIcPassport(v)
+		setIcPassport(normalized)
+		if (touched.icPassport)
+		{
+			setErrors((prev) => ({ ...prev, icPassport: validateIcPassport(normalized) }))
+		}
+	}
+
+	const handleOwnershipPctChange = (v: string) =>
+	{
+		setOwnershipPct(v)
+		if (touched.ownershipPct)
+		{
+			setErrors((prev) => ({ ...prev, ownershipPct: validateOwnershipPct(v) }))
+		}
+	}
+
+	const handlePickDocument = async (
+		setter: (f: UploadedFile) => void,
+		errorKey: 'ssmDoc' | 'icDoc',
+	) =>
+	{
+		await pickDocument(
+			(file) =>
+			{
+				setter(file)
+				// Validate the file immediately once picked and mark field touched.
+				setTouched((prev) => ({ ...prev, [errorKey]: true }))
+				setErrors((prev) => ({
+					...prev,
+					[errorKey]: validateUploadedFile(file, errorKey === 'ssmDoc'
+						? 'Certificate of Incorporation'
+						: 'Director IC / Passport Copy'),
+				}))
+			}
+		)
+	}
+
+	const handlePickSsmDoc = () =>
+	{
+		handlePickDocument(setSsmDoc, 'ssmDoc')
+	}
+
+	const handlePickIcDoc = () =>
+	{
+		handlePickDocument(setIcDoc, 'icDoc')
+	}
+
+	const handleLoginNavigation = () =>
+	{
+		router.replace('/login' as any)
+	}
+
+	// Validates every field, blocks submission on errors, then calls the email-verification initiation endpoint. Shows a success banner and toast before redirecting to login.
 	async function handleSubmit()
 	{
+		setTouched(touchAllFields())
+
+		const currentErrors = revalidateAll(
+			companyName, ssmNumber, entityType, registeredAddress,
+			registeredEmail, icPassport, directorRole, ownershipPct, ssmDoc, icDoc,
+		)
+		setErrors(currentErrors)
+		if (hasErrors(currentErrors)) return
+
 		setErrorMessage(null)
 		setIsSubmitting(true)
 
@@ -553,7 +900,7 @@ export default function RegisterBusinessScreen()
 				? (globalToken as string)
 				: 'REPLACE_WITH_REAL_TOKEN'
 
-			const params             = createSubmitRegistrationParams()
+			const params = createSubmitRegistrationParams()
 			params.accessToken       = accessToken
 			params.companyName       = companyName
 			params.ssmNumber         = ssmNumber
@@ -564,24 +911,39 @@ export default function RegisterBusinessScreen()
 			params.ownershipPct      = ownershipPct
 			params.submittedBy       = registeredEmail
 			params.ssmDoc            = ssmDoc !== null ? ssmDoc : createUploadedFile()
-			params.icDoc             = icDoc !== null ? icDoc : createUploadedFile()
+			params.icDoc             = icDoc  !== null ? icDoc  : createUploadedFile()
 
-			await submitRegistration(params)
-			setSuccessBanner(true)
-			setTimeout(() => router.replace('/' as any), 1800)
+			await initiateRegistration(params)
+
+			setEmailSentBanner(true)
+
+			setToastVisible(true)
+
+			setTimeout(() =>
+			{
+				setToastVisible(false)
+				router.replace('/login' as any)
+			}, 2400)
 		}
 		catch (e)
 		{
 			setErrorMessage(resolveErrorMessage(e))
-		}
-		finally
-		{
 			setIsSubmitting(false)
 		}
 	}
 
 	const webContainerClass = Platform.OS === 'web' ? 'max-w-[680px] w-full self-center pb-6' : ''
 	const webSubmitStyle    = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null
+
+	const isFormValid = !hasErrors
+	(
+		revalidateAll
+		(
+			companyName, ssmNumber, entityType, registeredAddress,
+			registeredEmail, icPassport, directorRole,
+			ownershipPct, ssmDoc, icDoc,
+		)
+	)
 
 	return (
 		<View className="flex-1 bg-[#F9FAFB]">
@@ -614,6 +976,7 @@ export default function RegisterBusinessScreen()
 
 						<View className="flex-1 px-6 pt-8 pb-8">
 
+							{/* ── Company Information ── */}
 							<SectionHeader
 								icon="office-building-outline"
 								label="Company Information"
@@ -627,11 +990,13 @@ export default function RegisterBusinessScreen()
 									icon="office-building-outline"
 									placeholder="Enter company name"
 									value={companyName}
-									onChangeText={setCompanyName}
+									onChangeText={handleCompanyNameChange}
+									onBlur={() => handleBlur('companyName')}
 									autoCapitalize="words"
 									keyboardType={null}
 									multiline={null}
 									numberOfLines={null}
+									error={visibleError('companyName')}
 								/>
 							</View>
 
@@ -641,11 +1006,13 @@ export default function RegisterBusinessScreen()
 									icon="pound"
 									placeholder="e.g., 202301234567"
 									value={ssmNumber}
-									onChangeText={setSsmNumber}
+									onChangeText={handleSsmNumberChange}
+									onBlur={() => handleBlur('ssmNumber')}
 									keyboardType="default"
 									autoCapitalize={null}
 									multiline={null}
 									numberOfLines={null}
+									error={visibleError('ssmNumber')}
 								/>
 							</View>
 
@@ -653,11 +1020,12 @@ export default function RegisterBusinessScreen()
 								<FieldLabel label="Entity Type" optional={null} />
 								<SegmentedControl<EntityType>
 									options={[
-										{ value: 'sdn_bhd',        label: 'Sdn Bhd',         icon: null },
-										{ value: 'sole_proprietor', label: 'Sole Proprietor',  icon: null },
+										{ value: 'sdn_bhd',         label: 'Sdn Bhd',        icon: null },
+										{ value: 'sole_proprietor', label: 'Sole Proprietor', icon: null },
 									]}
 									value={entityType}
-									onChange={setEntityType}
+									onChange={handleEntityTypeChange}
+									error={visibleError('entityType')}
 								/>
 							</View>
 
@@ -667,11 +1035,13 @@ export default function RegisterBusinessScreen()
 									icon="map-marker-outline"
 									placeholder="Enter registered business address"
 									value={registeredAddress}
-									onChangeText={setRegisteredAddress}
+									onChangeText={handleRegisteredAddressChange}
+									onBlur={() => handleBlur('registeredAddress')}
 									autoCapitalize="sentences"
 									keyboardType={null}
 									multiline={true}
 									numberOfLines={3}
+									error={visibleError('registeredAddress')}
 								/>
 							</View>
 
@@ -681,16 +1051,19 @@ export default function RegisterBusinessScreen()
 									icon="email-outline"
 									placeholder="Enter your registered email address"
 									value={registeredEmail}
-									onChangeText={setRegisteredEmail}
+									onChangeText={handleRegisteredEmailChange}
+									onBlur={() => handleBlur('registeredEmail')}
 									keyboardType="email-address"
 									autoCapitalize="none"
 									multiline={null}
 									numberOfLines={null}
+									error={visibleError('registeredEmail')}
 								/>
 							</View>
 
 							<View className="h-px bg-gray-200 my-6" />
 
+							{/* ── Director Information ── */}
 							<SectionHeader
 								icon="account-outline"
 								label="Director Information"
@@ -704,11 +1077,13 @@ export default function RegisterBusinessScreen()
 									icon="card-account-details-outline"
 									placeholder="Enter IC or Passport number"
 									value={icPassport}
-									onChangeText={setIcPassport}
+									onChangeText={handleIcPassportChange}
+									onBlur={() => handleBlur('icPassport')}
 									keyboardType={null}
-									autoCapitalize={null}
+									autoCapitalize="characters"
 									multiline={null}
 									numberOfLines={null}
+									error={visibleError('icPassport')}
 								/>
 							</View>
 
@@ -720,7 +1095,8 @@ export default function RegisterBusinessScreen()
 										{ value: 'owner',    label: 'Owner',    icon: 'account-outline' },
 									]}
 									value={directorRole}
-									onChange={setDirectorRole}
+									onChange={handleDirectorRoleChange}
+									error={visibleError('directorRole')}
 								/>
 							</View>
 
@@ -730,16 +1106,19 @@ export default function RegisterBusinessScreen()
 									icon="percent-outline"
 									placeholder="e.g., 100"
 									value={ownershipPct}
-									onChangeText={setOwnershipPct}
+									onChangeText={handleOwnershipPctChange}
+									onBlur={() => handleBlur('ownershipPct')}
 									keyboardType="numeric"
 									autoCapitalize={null}
 									multiline={null}
 									numberOfLines={null}
+									error={visibleError('ownershipPct')}
 								/>
 							</View>
 
 							<View className="h-px bg-gray-200 my-6" />
 
+							{/* ── Document Upload ── */}
 							<SectionHeader
 								icon="upload-outline"
 								label="Document Upload"
@@ -751,7 +1130,8 @@ export default function RegisterBusinessScreen()
 								<FieldLabel label="Certificate of Incorporation (SSM)" optional={null} />
 								<UploadBox
 									file={ssmDoc}
-									onPress={() => handlePickDocument(setSsmDoc)}
+									onPress={handlePickSsmDoc}
+									error={visibleError('ssmDoc')}
 								/>
 							</View>
 
@@ -759,24 +1139,34 @@ export default function RegisterBusinessScreen()
 								<FieldLabel label="Director IC / Passport Copy" optional={null} />
 								<UploadBox
 									file={icDoc}
-									onPress={() => handlePickDocument(setIcDoc)}
+									onPress={handlePickIcDoc}
+									error={visibleError('icDoc')}
 								/>
 							</View>
 
-							{successBanner && (
-								<View className="mb-5 px-4 py-3 bg-green-50 border border-green-200 rounded-xl flex-row items-center">
+							{/* ── Email Confirmation Banner ── */}
+							{emailSentBanner && (
+								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
-										name="check-circle-outline"
-										size={18}
-										color="#16a34a"
-										style={{ marginRight: 8 }}
+										name="email-check-outline"
+										size={20}
+										color="#2563EB"
+										style={{ marginRight: 10, marginTop: 1 }}
 									/>
-									<Text className="text-green-700 text-sm font-medium flex-1">
-										Registration submitted! Redirecting…
-									</Text>
+									<View className="flex-1">
+										<Text className="text-blue-800 text-sm font-semibold mb-1">
+											Check your inbox
+										</Text>
+										<Text className="text-blue-700 text-sm">
+											A verification link has been sent to{' '}
+											<Text className="font-semibold">{registeredEmail}</Text>.
+											Please click the link within 15 minutes to complete your registration.
+										</Text>
+									</View>
 								</View>
 							)}
 
+							{/* ── Global API error ── */}
 							{errorMessage !== null && (
 								<View className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
@@ -789,24 +1179,36 @@ export default function RegisterBusinessScreen()
 								</View>
 							)}
 
-							<TouchableOpacity
-								className="bg-blue-600 rounded-2xl py-4 items-center mb-6 shadow-md shadow-blue-300"
-								onPress={handleSubmit}
-								disabled={isSubmitting || successBanner}
-								style={webSubmitStyle}
-							>
-								{isSubmitting ? (
-									<ActivityIndicator color="#fff" />
-								) : (
-									<Text className="text-white text-base font-semibold tracking-wide">
-										Submit Registration
-									</Text>
-								)}
-							</TouchableOpacity>
+							{/* ── Submit button (hidden once email banner is shown) ── */}
+							{!emailSentBanner && (
+								<TouchableOpacity
+									className={`rounded-2xl py-4 items-center mb-6 shadow-md ${
+										isFormValid && !isSubmitting
+											? 'bg-blue-600 shadow-blue-300'
+											: 'bg-gray-300 shadow-gray-200'
+									}`}
+									onPress={handleSubmit}
+									disabled={!isFormValid || isSubmitting}
+									style={webSubmitStyle}
+									accessibilityRole="button"
+									accessibilityLabel="Submit Registration"
+									accessibilityState={{ disabled: !isFormValid || isSubmitting }}
+								>
+									{isSubmitting ? (
+										<ActivityIndicator color="#fff" />
+									) : (
+										<Text className={`text-base font-semibold tracking-wide ${
+											isFormValid ? 'text-white' : 'text-gray-400'
+										}`}>
+											Submit Registration
+										</Text>
+									)}
+								</TouchableOpacity>
+							)}
 
 							<View className="flex-row justify-center">
 								<Text className="text-gray-500 text-sm">Already have an account? </Text>
-								<TouchableOpacity onPress={() => router.replace('/login' as any)}>
+								<TouchableOpacity onPress={handleLoginNavigation} accessibilityRole="link">
 									<Text className="text-blue-600 text-sm font-semibold">Sign In</Text>
 								</TouchableOpacity>
 							</View>
@@ -815,6 +1217,11 @@ export default function RegisterBusinessScreen()
 					</View>
 				</ScrollView>
 			</KeyboardAvoidingView>
+
+			<Toast
+				visible={toastVisible}
+				message="Registration submitted! Redirecting…"
+			/>
 		</View>
 	)
 }

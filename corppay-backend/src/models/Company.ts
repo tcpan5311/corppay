@@ -38,17 +38,13 @@ export interface ICompany extends Document
 	updatedAt:         Date
 }
 
-// Creates a fully initialised IDirector with all fields set to null pending assignment.
+// Creates a fully initialized IDirector with all fields set to null.
 export function createDirector(): IDirector
 {
-	return {
-		icPassport:   null,
-		role:         null,
-		ownershipPct: null,
-	}
+	return { icPassport: null, role: null, ownershipPct: null }
 }
 
-// Creates a fully initialised IUploadedDocument with all fields set to null pending assignment.
+// Creates a fully initialized IUploadedDocument with all fields set to null.
 export function createUploadedDocument(): IUploadedDocument
 {
 	return {
@@ -61,8 +57,7 @@ export function createUploadedDocument(): IUploadedDocument
 	}
 }
 
-const DirectorSchema = new Schema<IDirector>
-(
+const DirectorSchema = new Schema<IDirector>(
 	{
 		icPassport:   { type: String, required: true, trim: true, default: null },
 		role:         { type: String, enum: ['director', 'owner'], required: true, default: null },
@@ -71,8 +66,7 @@ const DirectorSchema = new Schema<IDirector>
 	{ _id: false }
 )
 
-const UploadedDocumentSchema = new Schema<IUploadedDocument>
-(
+const UploadedDocumentSchema = new Schema<IUploadedDocument>(
 	{
 		fieldName:    { type: String, required: true, default: null },
 		originalName: { type: String, required: true, default: null },
@@ -84,8 +78,7 @@ const UploadedDocumentSchema = new Schema<IUploadedDocument>
 	{ _id: false }
 )
 
-const CompanySchema = new Schema<ICompany>
-(
+const CompanySchema = new Schema<ICompany>(
 	{
 		name:              { type: String, required: true, trim: true },
 		ssmNumber:         { type: String, required: true, unique: true, trim: true, uppercase: true },
@@ -102,7 +95,6 @@ const CompanySchema = new Schema<ICompany>
 	{ timestamps: true }
 )
 
-CompanySchema.index({ ssmNumber: 1 }, { unique: true })
 CompanySchema.index({ submittedBy: 1 })
 CompanySchema.index({ status: 1 })
 
