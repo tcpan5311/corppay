@@ -12,7 +12,15 @@ type RateLimitEntry =
 // Creates a new RateLimitEntry initialized with a count of one and the given window start time.
 function createRateLimitEntry(windowStart: number): RateLimitEntry
 {
-	return { count: 1, windowStart: windowStart }
+	return { count: 1, windowStart }
+}
+
+// Resolves the client IP address from the request, falling back through socket address to 'unknown'.
+function resolveIp(req: Request): string
+{
+	if (req.ip !== undefined)                         return req.ip
+	if (req.socket.remoteAddress !== undefined)       return req.socket.remoteAddress
+	return 'unknown'
 }
 
 const ipMap = new Map<string, RateLimitEntry>()
@@ -20,18 +28,7 @@ const ipMap = new Map<string, RateLimitEntry>()
 // Enforces a sliding-window rate limit per IP address, rejecting requests that exceed the threshold.
 export function companyRateLimit(req: Request, res: Response, next: NextFunction): void
 {
-	let ip = req.ip
-
-	if (!ip)
-	{
-		ip = req.socket.remoteAddress
-	}
-
-	if (!ip)
-	{
-		ip = 'unknown'
-	}
-
+	const ip  = resolveIp(req)
 	const now = Date.now()
 
 	if (!ipMap.has(ip))
@@ -41,8 +38,7 @@ export function companyRateLimit(req: Request, res: Response, next: NextFunction
 		return
 	}
 
-	const existing = ipMap.get(ip) as RateLimitEntry
-
+	const existing      = ipMap.get(ip) as RateLimitEntry
 	const windowExpired = existing.windowStart !== null && now - existing.windowStart >= WINDOW_MS
 
 	if (windowExpired)

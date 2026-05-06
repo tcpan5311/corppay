@@ -21,8 +21,7 @@ export interface IPendingRegistration extends Document
 }
 
 // Creates a pending registration document expiring 15 minutes from now with the given token.
-export function buildPendingRegistrationDoc
-(
+export function buildPendingRegistrationDoc(
 	token:             string,
 	name:              string,
 	ssmNumber:         string,
@@ -30,14 +29,14 @@ export function buildPendingRegistrationDoc
 	registeredAddress: string,
 	submittedBy:       string,
 	director:          IDirector,
-	documents:         IUploadedDocument[]
+	documents:         IUploadedDocument[],
 ): Omit<IPendingRegistration, keyof Document>
 {
 	const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 	return {
 		token,
 		expiresAt,
-		status:   'pending',
+		status: 'pending',
 		name,
 		ssmNumber,
 		entityType,
@@ -50,8 +49,7 @@ export function buildPendingRegistrationDoc
 	} as Omit<IPendingRegistration, keyof Document>
 }
 
-const DirectorSubSchema = new Schema<IDirector>
-(
+const DirectorSubSchema = new Schema<IDirector>(
 	{
 		icPassport:   { type: String, default: null },
 		role:         { type: String, enum: ['director', 'owner'], default: null },
@@ -60,8 +58,7 @@ const DirectorSubSchema = new Schema<IDirector>
 	{ _id: false }
 )
 
-const UploadedDocSubSchema = new Schema<IUploadedDocument>
-(
+const UploadedDocSubSchema = new Schema<IUploadedDocument>(
 	{
 		fieldName:    { type: String, default: null },
 		originalName: { type: String, default: null },
@@ -73,8 +70,7 @@ const UploadedDocSubSchema = new Schema<IUploadedDocument>
 	{ _id: false }
 )
 
-const PendingRegistrationSchema = new Schema<IPendingRegistration>
-(
+const PendingRegistrationSchema = new Schema<IPendingRegistration>(
 	{
 		token:             { type: String, required: true, unique: true, index: true },
 		expiresAt:         { type: Date,   required: true, index: { expireAfterSeconds: 0 } },
@@ -84,7 +80,7 @@ const PendingRegistrationSchema = new Schema<IPendingRegistration>
 		entityType:        { type: String, enum: ['sdn_bhd', 'sole_proprietor'], required: true },
 		registeredAddress: { type: String, required: true, trim: true },
 		submittedBy:       { type: String, required: true },
-		director:          { type: DirectorSubSchema,    required: true },
+		director:          { type: DirectorSubSchema,      required: true },
 		documents:         { type: [UploadedDocSubSchema], default: [] },
 	},
 	{ timestamps: true }

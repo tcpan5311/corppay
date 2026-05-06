@@ -1,5 +1,11 @@
 import nodemailer from 'nodemailer'
 
+type TransportAuth =
+{
+	user: string
+	pass: string
+}
+
 type TransportConfig =
 {
 	host:   string
@@ -8,19 +14,13 @@ type TransportConfig =
 	auth:   TransportAuth
 }
 
-type TransportAuth =
-{
-	user: string
-	pass: string
-}
-
 // Builds the nodemailer transport configuration from environment variables.
 function buildTransportConfig(): TransportConfig
 {
-	const host   = process.env.SMTP_HOST   !== undefined ? process.env.SMTP_HOST   : ''
-	const port   = process.env.SMTP_PORT   !== undefined ? parseInt(process.env.SMTP_PORT, 10) : 587
-	const user   = process.env.SMTP_USER   !== undefined ? process.env.SMTP_USER   : ''
-	const pass   = process.env.SMTP_PASS   !== undefined ? process.env.SMTP_PASS   : ''
+	const host   = process.env.SMTP_HOST !== undefined ? process.env.SMTP_HOST : ''
+	const port   = process.env.SMTP_PORT !== undefined ? parseInt(process.env.SMTP_PORT, 10) : 587
+	const user   = process.env.SMTP_USER !== undefined ? process.env.SMTP_USER : ''
+	const pass   = process.env.SMTP_PASS !== undefined ? process.env.SMTP_PASS : ''
 	const secure = port === 465
 	return { host, port, secure, auth: { user, pass } }
 }
@@ -96,13 +96,12 @@ export function createSendVerificationEmailParams(): SendVerificationEmailParams
 // Sends a verification email containing a secure expiring link to the provided address.
 export async function sendVerificationEmail(params: SendVerificationEmailParams): Promise<void>
 {
-	const from       = process.env.SMTP_FROM !== undefined ? process.env.SMTP_FROM : ''
-	const verifyUrl  = buildVerificationUrl(params.token)
-	const textBody   = buildTextBody(verifyUrl)
-	const htmlBody   = buildHtmlBody(verifyUrl)
+	const from      = process.env.SMTP_FROM !== undefined ? process.env.SMTP_FROM : ''
+	const verifyUrl = buildVerificationUrl(params.token)
+	const textBody  = buildTextBody(verifyUrl)
+	const htmlBody  = buildHtmlBody(verifyUrl)
 
-	await transporter.sendMail
-	({
+	await transporter.sendMail({
 		from,
 		to:      params.toAddress,
 		subject: 'CorpPay — Verify your email to complete registration',

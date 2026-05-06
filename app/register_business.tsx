@@ -1,8 +1,36 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, } from 'react-native';
-import { FormErrors, TouchedFields, createFormErrors, createTouchedFields, hasErrors, normalizeIcPassport, touchAllFields, validateAllFields, validateCompanyName, validateDirectorRole, validateEntityType, validateIcPassport, validateOwnershipPct, validateRegisteredAddress, validateRegisteredEmail, validateSsmNumber, validateUploadedFile } from '../lib/validation/registerBusiness';
+import {
+	ActivityIndicator,
+	Animated,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
+} from 'react-native';
+import {
+	FormErrors,
+	TouchedFields,
+	createFormErrors,
+	createTouchedFields,
+	hasErrors,
+	normalizeIcPassport,
+	touchAllFields,
+	validateAllFields,
+	validateCompanyName,
+	validateDirectorRole,
+	validateEntityType,
+	validateIcPassport,
+	validateOwnershipPct,
+	validateRegisteredAddress,
+	validateRegisteredEmail,
+	validateSsmNumber,
+	validateUploadedFile,
+} from '../lib/validation/registerBusinessValidation';
 
 type EntityType   = 'sdn_bhd' | 'sole_proprietor'
 type DirectorRole = 'director' | 'owner'
@@ -182,43 +210,45 @@ function formatBytes(bytes: number | null): string
 }
 
 // Returns the asset size as a number, defaulting to zero when the value is absent.
-function resolveAssetSize(value: number | null | undefined): number
+function resolveAssetSize(value: number | null): number
 {
-	if (value === null || value === undefined) return 0
+	if (value === null) return 0
 	return value
 }
 
 // Returns the asset MIME type string, defaulting to octet-stream when the value is absent.
-function resolveAssetMimeType(value: string | null | undefined): string
+function resolveAssetMimeType(value: string | null): string
 {
-	if (value === null || value === undefined) return 'application/octet-stream'
+	if (value === null) return 'application/octet-stream'
 	return value
 }
 
 // Extracts a user-friendly error message from an unknown thrown value.
 function resolveErrorMessage(e: unknown): string
 {
-	const err = e as any
-	if (err !== null && err.message !== null)
+	if (e !== null && typeof e === 'object' && 'message' in e)
 	{
-		return err.message as string
+		const record = e as Record<string, unknown>
+		const msg    = record['message']
+		if (typeof msg === 'string') return msg
 	}
 	return 'Registration failed. Please try again.'
 }
 
 // Extracts a user-friendly error message from an API error response body.
-function resolveApiErrorMessage(data: any): string
+function resolveApiErrorMessage(data: unknown): string
 {
-	if (data !== null && data.error !== null)
+	if (data === null || typeof data !== 'object') return 'Registration failed. Please try again.'
+	const record = data as Record<string, unknown>
+	if (typeof record['error'] === 'string') return record['error']
+	const errorList = record['errors']
+	if (Array.isArray(errorList) && errorList.length > 0)
 	{
-		return data.error as string
-	}
-	if (data !== null && Array.isArray(data.errors) && data.errors.length > 0)
-	{
-		const first = data.errors[0]
-		if (first !== null && first.msg !== null)
+		const first = errorList[0]
+		if (first !== null && typeof first === 'object')
 		{
-			return first.msg as string
+			const firstRecord = first as Record<string, unknown>
+			if (typeof firstRecord['msg'] === 'string') return firstRecord['msg']
 		}
 	}
 	return 'Registration failed. Please try again.'
@@ -238,6 +268,7 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 
 				let settled = false
 
+				// Resolves the Promise exactly once and prevents duplicate invocations.
 				const settle = () =>
 				{
 					if (!settled)
@@ -249,7 +280,7 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 
 				window.addEventListener('focus', settle, { once: true })
 
-				input.onchange = (e) =>
+				input.onchange = (e: Event) =>
 				{
 					settled        = true
 					const inputEl  = e.target as HTMLInputElement
@@ -278,16 +309,15 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 		try
 		{
 			const DocumentPicker = await import('expo-document-picker')
-			const result = await DocumentPicker.getDocumentAsync
-			({
+			const result = await DocumentPicker.getDocumentAsync({
 				type:                 ['application/pdf', 'image/*'],
 				copyToCacheDirectory: true,
 				multiple:             false,
 			})
 			if (result.canceled) return
 			const asset        = result.assets[0]
-			const assetSize    = resolveAssetSize(asset.size)
-			const assetMime    = resolveAssetMimeType(asset.mimeType)
+			const assetSize    = resolveAssetSize(asset.size !== undefined ? asset.size : null)
+			const assetMime    = resolveAssetMimeType(asset.mimeType !== undefined ? asset.mimeType : null)
 			const uploadedFile = createUploadedFile()
 			uploadedFile.name     = asset.name
 			uploadedFile.size     = formatBytes(assetSize)
@@ -307,77 +337,7 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
 // Submits the company registration form data and uploaded documents to the API directly (legacy route).
-async function submitRegistration(params: SubmitRegistrationParams): Promise<any>
-{
-	const form = new FormData()
-
-	if (params.companyName !== null)       form.append('name',                params.companyName)
-	if (params.ssmNumber !== null)         form.append('ssmNumber',           params.ssmNumber)
-	if (params.entityType !== null)        form.append('entityType',          params.entityType)
-	if (params.registeredAddress !== null) form.append('registeredAddress',   params.registeredAddress)
-	if (params.icPassport !== null)        form.append('director.icPassport', params.icPassport)
-	if (params.directorRole !== null)      form.append('director.role',       params.directorRole)
-	if (params.submittedBy !== null)       form.append('submittedBy',         params.submittedBy)
-
-	if (params.ownershipPct !== null && params.ownershipPct.trim() !== '')
-	{
-		form.append('director.ownershipPct', params.ownershipPct.trim())
-	}
-
-	if (params.ssmDoc !== null)
-	{
-		if (params.ssmDoc.webFile !== null)
-		{
-			form.append('ssmDoc', params.ssmDoc.webFile, params.ssmDoc.webFile.name)
-		}
-		else if (params.ssmDoc.uri !== null)
-		{
-			form.append('ssmDoc',
-			{
-				uri:  params.ssmDoc.uri,
-				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
-				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
-			} as unknown as Blob)
-		}
-	}
-
-	if (params.icDoc !== null)
-	{
-		if (params.icDoc.webFile !== null)
-		{
-			form.append('icDoc', params.icDoc.webFile, params.icDoc.webFile.name)
-		}
-		else if (params.icDoc.uri !== null)
-		{
-			form.append('icDoc',
-			{
-				uri:  params.icDoc.uri,
-				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
-				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
-			} as unknown as Blob)
-		}
-	}
-
-	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
-
-	const response = await fetch(`${API_BASE}/companies/register`, {
-		method:  'POST',
-		headers: { Authorization: authHeader },
-		body:    form,
-	})
-
-	const data = await response.json()
-
-	if (!response.ok)
-	{
-		throw new Error(resolveApiErrorMessage(data))
-	}
-
-	return data
-}
-
-// Submits the registration form to the email-verification endpoint, which gates company creation behind email confirmation.
-async function initiateRegistration(params: SubmitRegistrationParams): Promise<any>
+async function submitRegistration(params: SubmitRegistrationParams): Promise<unknown>
 {
 	const form = new FormData()
 
@@ -418,8 +378,75 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<a
 		}
 		else if (params.icDoc.uri !== null)
 		{
-			form.append('icDoc',
-			{
+			form.append('icDoc', {
+				uri:  params.icDoc.uri,
+				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
+				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
+
+	const response = await fetch(`${API_BASE}/companies/register`, {
+		method:  'POST',
+		headers: { Authorization: authHeader },
+		body:    form,
+	})
+
+	const data: unknown = (await response.json()) as unknown
+
+	if (!response.ok)
+	{
+		throw new Error(resolveApiErrorMessage(data))
+	}
+
+	return data
+}
+
+// Submits the registration form to the email-verification endpoint, which gates company creation behind email confirmation.
+async function initiateRegistration(params: SubmitRegistrationParams): Promise<unknown>
+{
+	const form = new FormData()
+
+	if (params.companyName !== null)       form.append('name',                params.companyName)
+	if (params.ssmNumber !== null)         form.append('ssmNumber',           params.ssmNumber)
+	if (params.entityType !== null)        form.append('entityType',          params.entityType)
+	if (params.registeredAddress !== null) form.append('registeredAddress',   params.registeredAddress)
+	if (params.icPassport !== null)        form.append('director.icPassport', params.icPassport)
+	if (params.directorRole !== null)      form.append('director.role',       params.directorRole)
+	if (params.submittedBy !== null)       form.append('submittedBy',         params.submittedBy)
+
+	if (params.ownershipPct !== null && params.ownershipPct.trim() !== '')
+	{
+		form.append('director.ownershipPct', params.ownershipPct.trim())
+	}
+
+	if (params.ssmDoc !== null)
+	{
+		if (params.ssmDoc.webFile !== null)
+		{
+			form.append('ssmDoc', params.ssmDoc.webFile, params.ssmDoc.webFile.name)
+		}
+		else if (params.ssmDoc.uri !== null)
+		{
+			form.append('ssmDoc', {
+				uri:  params.ssmDoc.uri,
+				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
+				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	if (params.icDoc !== null)
+	{
+		if (params.icDoc.webFile !== null)
+		{
+			form.append('icDoc', params.icDoc.webFile, params.icDoc.webFile.name)
+		}
+		else if (params.icDoc.uri !== null)
+		{
+			form.append('icDoc', {
 				uri:  params.icDoc.uri,
 				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
 				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
@@ -435,7 +462,7 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<a
 		body:    form,
 	})
 
-	const data = await response.json()
+	const data: unknown = (await response.json()) as unknown
 
 	if (!response.ok)
 	{
@@ -517,8 +544,11 @@ function TextFieldInput(props: TextFieldInputProps)
 	const resolvedValue        = props.value !== null ? props.value : ''
 	const hasError             = props.error !== null
 
+	// A no-op change handler used when no handler is provided.
 	const noopChangeHandler = (_v: string) => {}
-	const noopBlurHandler   = () => {}
+
+	// A no-op blur handler used when no handler is provided.
+	const noopBlurHandler = () => {}
 
 	const resolvedOnChange = props.onChangeText !== null ? props.onChangeText : noopChangeHandler
 	const resolvedOnBlur   = props.onBlur       !== null ? props.onBlur       : noopBlurHandler
@@ -575,6 +605,7 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 					{
 						const active = props.value !== null && opt.value !== null && props.value === opt.value
 
+						// Fires the onChange callback when a segment option is pressed.
 						const handleOptionPress = () =>
 						{
 							if (props.onChange !== null && opt.value !== null)
@@ -618,9 +649,11 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 // Renders a file upload drop zone that displays file details once a file has been selected.
 function UploadBox(props: UploadBoxProps)
 {
-	const webCursorStyle = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null
-	const hasError       = props.error !== null
+	const webCursorStyle: Record<string, string> | null =
+		Platform.OS === 'web' ? { cursor: 'pointer' } : null
+	const hasError = props.error !== null
 
+	// A no-op press handler used when no handler is provided.
 	const noopPressHandler = () => {}
 
 	return (
@@ -633,7 +666,7 @@ function UploadBox(props: UploadBoxProps)
 						: 'bg-gray-50 border-gray-300'
 				}`}
 				activeOpacity={0.7}
-				style={webCursorStyle}
+				style={webCursorStyle as object}
 				accessibilityRole="button"
 			>
 				{props.file !== null ? (
@@ -724,7 +757,7 @@ export default function RegisterBusinessScreen()
 	const [entityType,        setEntityType]        = useState<EntityType | null>(null)
 	const [registeredAddress, setRegisteredAddress] = useState<string>('')
 	const [icPassport,        setIcPassport]        = useState<string>('')
-	const [directorRole, setDirectorRole] 			= useState<DirectorRole | null>(null)
+	const [directorRole,      setDirectorRole]      = useState<DirectorRole | null>(null)
 	const [ownershipPct,      setOwnershipPct]      = useState<string>('')
 	const [registeredEmail,   setRegisteredEmail]   = useState<string>('')
 	const [ssmDoc,            setSsmDoc]            = useState<UploadedFile | null>(null)
@@ -738,14 +771,14 @@ export default function RegisterBusinessScreen()
 
 	// Recomputes every field error from the latest form values.
 	function revalidateAll(
-		cn: string,
-		ssm: string,
-		et: EntityType | null,
+		cn:   string,
+		ssm:  string,
+		et:   EntityType | null,
 		addr: string,
 		email: string,
-		ic: string,
-		role:  DirectorRole | null,
-		pct: string,
+		ic:   string,
+		role: DirectorRole | null,
+		pct:  string,
 		sDoc: UploadedFile | null,
 		iDoc: UploadedFile | null,
 	): FormErrors
@@ -757,21 +790,21 @@ export default function RegisterBusinessScreen()
 	function handleBlur(field: keyof TouchedFields)
 	{
 		setTouched((prev) => ({ ...prev, [field]: true }))
-
-		const next = revalidateAll
-		(
+		const next = revalidateAll(
 			companyName, ssmNumber, entityType, registeredAddress,
 			registeredEmail, icPassport, directorRole, ownershipPct, ssmDoc, icDoc,
 		)
 		setErrors(next)
 	}
 
+	// Returns the error message for a field only if that field has been touched.
 	function visibleError(field: keyof FormErrors): string | null
 	{
 		if (!touched[field]) return null
 		return errors[field]
 	}
 
+	// Updates company name state and validates the field if it has been touched.
 	const handleCompanyNameChange = (v: string) =>
 	{
 		setCompanyName(v)
@@ -781,6 +814,7 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Updates SSM number state and validates the field if it has been touched.
 	const handleSsmNumberChange = (v: string) =>
 	{
 		setSsmNumber(v)
@@ -790,6 +824,7 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Sets entity type, marks the field touched, and validates immediately.
 	const handleEntityTypeChange = (v: EntityType) =>
 	{
 		setEntityType(v)
@@ -797,6 +832,7 @@ export default function RegisterBusinessScreen()
 		setErrors((prev) => ({ ...prev, entityType: validateEntityType(v) }))
 	}
 
+	// Sets director role, marks the field touched, and validates immediately.
 	const handleDirectorRoleChange = (v: DirectorRole) =>
 	{
 		setDirectorRole(v)
@@ -804,6 +840,7 @@ export default function RegisterBusinessScreen()
 		setErrors((prev) => ({ ...prev, directorRole: validateDirectorRole(v) }))
 	}
 
+	// Updates registered address state and validates the field if it has been touched.
 	const handleRegisteredAddressChange = (v: string) =>
 	{
 		setRegisteredAddress(v)
@@ -813,6 +850,7 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Updates registered email state and validates the field if it has been touched.
 	const handleRegisteredEmailChange = (v: string) =>
 	{
 		setRegisteredEmail(v)
@@ -822,6 +860,7 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Normalizes and updates the IC/Passport field, validating if the field has been touched.
 	const handleIcPassportChange = (v: string) =>
 	{
 		const normalized = normalizeIcPassport(v)
@@ -832,6 +871,7 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Updates ownership percentage state and validates the field if it has been touched.
 	const handleOwnershipPctChange = (v: string) =>
 	{
 		setOwnershipPct(v)
@@ -841,8 +881,9 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
+	// Opens the document picker and updates the file state and error for the specified field.
 	const handlePickDocument = async (
-		setter: (f: UploadedFile) => void,
+		setter:   (f: UploadedFile) => void,
 		errorKey: 'ssmDoc' | 'icDoc',
 	) =>
 	{
@@ -850,34 +891,39 @@ export default function RegisterBusinessScreen()
 			(file) =>
 			{
 				setter(file)
-				// Validate the file immediately once picked and mark field touched.
 				setTouched((prev) => ({ ...prev, [errorKey]: true }))
 				setErrors((prev) => ({
 					...prev,
-					[errorKey]: validateUploadedFile(file, errorKey === 'ssmDoc'
-						? 'Certificate of Incorporation'
-						: 'Director IC / Passport Copy'),
+					[errorKey]: validateUploadedFile(
+						file,
+						errorKey === 'ssmDoc'
+							? 'Certificate of Incorporation'
+							: 'Director IC / Passport Copy',
+					),
 				}))
 			}
 		)
 	}
 
+	// Triggers the document picker for the SSM certificate upload field.
 	const handlePickSsmDoc = () =>
 	{
 		handlePickDocument(setSsmDoc, 'ssmDoc')
 	}
 
+	// Triggers the document picker for the director IC/Passport upload field.
 	const handlePickIcDoc = () =>
 	{
 		handlePickDocument(setIcDoc, 'icDoc')
 	}
 
+	// Navigates the user to the login screen.
 	const handleLoginNavigation = () =>
 	{
-		router.replace('/login' as any)
+		router.replace('/login' as never)
 	}
 
-	// Validates every field, blocks submission on errors, then calls the email-verification initiation endpoint. Shows a success banner and toast before redirecting to login.
+	// Validates every field, blocks submission on errors, then calls the email-verification initiation endpoint, shows a success banner and toast before redirecting to login.
 	async function handleSubmit()
 	{
 		setTouched(touchAllFields())
@@ -894,10 +940,10 @@ export default function RegisterBusinessScreen()
 
 		try
 		{
-			const globalAny   = global as any
-			const globalToken = globalAny.__accessToken
-			const accessToken = globalToken !== null
-				? (globalToken as string)
+			const globalRecord = global as Record<string, unknown>
+			const globalToken  = globalRecord['__accessToken']
+			const accessToken  = typeof globalToken === 'string'
+				? globalToken
 				: 'REPLACE_WITH_REAL_TOKEN'
 
 			const params = createSubmitRegistrationParams()
@@ -916,13 +962,12 @@ export default function RegisterBusinessScreen()
 			await initiateRegistration(params)
 
 			setEmailSentBanner(true)
-
 			setToastVisible(true)
 
 			setTimeout(() =>
 			{
 				setToastVisible(false)
-				router.replace('/login' as any)
+				router.replace('/login' as never)
 			}, 2400)
 		}
 		catch (e)
@@ -932,13 +977,14 @@ export default function RegisterBusinessScreen()
 		}
 	}
 
-	const webContainerClass = Platform.OS === 'web' ? 'max-w-[680px] w-full self-center pb-6' : ''
-	const webSubmitStyle    = Platform.OS === 'web' ? ({ cursor: 'pointer' } as any) : null
+	const webContainerClass: string =
+		Platform.OS === 'web' ? 'max-w-[680px] w-full self-center pb-6' : ''
 
-	const isFormValid = !hasErrors
-	(
-		revalidateAll
-		(
+	const webSubmitStyle: Record<string, string> | null =
+		Platform.OS === 'web' ? { cursor: 'pointer' } : null
+
+	const isFormValid = !hasErrors(
+		revalidateAll(
 			companyName, ssmNumber, entityType, registeredAddress,
 			registeredEmail, icPassport, directorRole,
 			ownershipPct, ssmDoc, icDoc,
@@ -976,7 +1022,6 @@ export default function RegisterBusinessScreen()
 
 						<View className="flex-1 px-6 pt-8 pb-8">
 
-							{/* ── Company Information ── */}
 							<SectionHeader
 								icon="office-building-outline"
 								label="Company Information"
@@ -1063,7 +1108,6 @@ export default function RegisterBusinessScreen()
 
 							<View className="h-px bg-gray-200 my-6" />
 
-							{/* ── Director Information ── */}
 							<SectionHeader
 								icon="account-outline"
 								label="Director Information"
@@ -1118,7 +1162,6 @@ export default function RegisterBusinessScreen()
 
 							<View className="h-px bg-gray-200 my-6" />
 
-							{/* ── Document Upload ── */}
 							<SectionHeader
 								icon="upload-outline"
 								label="Document Upload"
@@ -1144,7 +1187,6 @@ export default function RegisterBusinessScreen()
 								/>
 							</View>
 
-							{/* ── Email Confirmation Banner ── */}
 							{emailSentBanner && (
 								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
@@ -1166,7 +1208,6 @@ export default function RegisterBusinessScreen()
 								</View>
 							)}
 
-							{/* ── Global API error ── */}
 							{errorMessage !== null && (
 								<View className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
@@ -1179,7 +1220,6 @@ export default function RegisterBusinessScreen()
 								</View>
 							)}
 
-							{/* ── Submit button (hidden once email banner is shown) ── */}
 							{!emailSentBanner && (
 								<TouchableOpacity
 									className={`rounded-2xl py-4 items-center mb-6 shadow-md ${
@@ -1189,7 +1229,7 @@ export default function RegisterBusinessScreen()
 									}`}
 									onPress={handleSubmit}
 									disabled={!isFormValid || isSubmitting}
-									style={webSubmitStyle}
+									style={webSubmitStyle as object}
 									accessibilityRole="button"
 									accessibilityLabel="Submit Registration"
 									accessibilityState={{ disabled: !isFormValid || isSubmitting }}

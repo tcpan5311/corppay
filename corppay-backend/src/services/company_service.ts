@@ -1,5 +1,12 @@
 import Company, { createDirector, DirectorRole, EntityType, ICompany, IUploadedDocument } from '../models/Company'
 
+export type RegisterDirectorPayload =
+{
+	icPassport:   string | null
+	role:         DirectorRole | null
+	ownershipPct: number | null
+}
+
 export type RegisterCompanyPayload =
 {
 	name:              string | null
@@ -9,13 +16,6 @@ export type RegisterCompanyPayload =
 	director:          RegisterDirectorPayload
 	documents:         IUploadedDocument[]
 	submittedBy:       string | null
-}
-
-export type RegisterDirectorPayload =
-{
-	icPassport:   string | null
-	role:         DirectorRole | null
-	ownershipPct: number | null
 }
 
 // Creates a fully initialized RegisterDirectorPayload with all fields set to null.
@@ -49,7 +49,9 @@ export async function findCompanyBySsm(ssmNumber: string): Promise<ICompany | nu
 export async function registerCompany(payload: RegisterCompanyPayload): Promise<ICompany>
 {
 	if (!payload.name || !payload.ssmNumber || !payload.entityType || !payload.registeredAddress || !payload.submittedBy)
+	{
 		throw new Error('Missing required fields')
+	}
 
 	const name              = payload.name
 	const ssmNumber         = payload.ssmNumber
@@ -58,19 +60,19 @@ export async function registerCompany(payload: RegisterCompanyPayload): Promise<
 	const director          = payload.director
 	const documents         = payload.documents
 	const submittedBy       = payload.submittedBy
-
-	const normalizedSsm = ssmNumber.trim().toUpperCase()
-
-	const existing = await Company.findOne({ ssmNumber: normalizedSsm })
+	const normalizedSsm     = ssmNumber.trim().toUpperCase()
+	const existing          = await Company.findOne({ ssmNumber: normalizedSsm })
 
 	if (existing !== null)
 	{
 		if (existing.status === 'approved')
+		{
 			throw new Error('A company with this SSM number is already registered.')
-
+		}
 		if (existing.status === 'pending')
+		{
 			throw new Error('A registration for this SSM number is already under review.')
-
+		}
 		await Company.deleteOne({ _id: existing._id })
 	}
 
@@ -79,8 +81,7 @@ export async function registerCompany(payload: RegisterCompanyPayload): Promise<
 	directorData.role         = director.role
 	directorData.ownershipPct = director.ownershipPct
 
-	const company = await Company.create
-	({
+	const company = await Company.create({
 		name:              name.trim(),
 		ssmNumber:         normalizedSsm,
 		entityType,

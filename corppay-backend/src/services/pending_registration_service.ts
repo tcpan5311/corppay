@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 
-import { createDirector, IUploadedDocument } from '../models/Company'
+import { createDirector, DirectorRole, EntityType, IUploadedDocument } from '../models/Company'
 import PendingRegistration, { buildPendingRegistrationDoc, IPendingRegistration } from '../models/PendingRegistration'
 import { registerCompany } from './company_service'
 
@@ -65,17 +65,17 @@ export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendin
 // Persists a pending registration with a fresh token and 15-minute expiry, returning the token details.
 export async function savePendingRegistration(payload: SavePendingRegistrationPayload): Promise<SavePendingResult>
 {
-	const token    = generateSecureToken()
-	const director = createDirector()
-	director.icPassport   = payload.directorIcPassport
-	director.role         = payload.directorRole as any
-	director.ownershipPct = payload.directorOwnershipPct
+	const token               = generateSecureToken()
+	const director            = createDirector()
+	director.icPassport       = payload.directorIcPassport
+	director.role             = payload.directorRole as DirectorRole
+	director.ownershipPct     = payload.directorOwnershipPct
 
 	const doc = buildPendingRegistrationDoc(
 		token,
 		payload.name,
 		payload.ssmNumber,
-		payload.entityType as any,
+		payload.entityType as EntityType,
 		payload.registeredAddress,
 		payload.submittedBy,
 		director,
@@ -104,9 +104,8 @@ export function createVerifyTokenResult(): VerifyTokenResult
 // Validates the token, promotes the pending registration to a confirmed company record, and marks the token consumed.
 export async function verifyEmailToken(token: string): Promise<VerifyTokenResult>
 {
-	const result = createVerifyTokenResult()
-
-	const pending: IPendingRegistration | null = await PendingRegistration.findOne({ token })
+	const result  = createVerifyTokenResult()
+	const pending = await PendingRegistration.findOne({ token })
 
 	if (pending === null)
 	{
@@ -126,14 +125,12 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 		return result
 	}
 
-	await registerCompany
-	({
+	await registerCompany({
 		name:              pending.name,
 		ssmNumber:         pending.ssmNumber,
 		entityType:        pending.entityType,
 		registeredAddress: pending.registeredAddress,
-		director:
-		{
+		director: {
 			icPassport:   pending.director.icPassport,
 			role:         pending.director.role,
 			ownershipPct: pending.director.ownershipPct,
