@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import express from 'express'
 import helmet from 'helmet'
 import mongoose from 'mongoose'
+import adminRoutes from './routes/admin_routes'
 import authRoutes from './routes/auth_routes'
 import companyRoutes from './routes/company_routes'
 
@@ -15,6 +16,7 @@ app.use(cors())
 app.use(express.json())
 app.use('/auth', authRoutes)
 app.use('/companies', companyRoutes)
+app.use('/admin/review', adminRoutes)   
 
 app.get('/', (request, response) =>
 {

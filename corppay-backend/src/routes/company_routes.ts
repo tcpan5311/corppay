@@ -192,7 +192,7 @@ function validateDirectorRole(value: string): string | null
 // Returns an error string if the ownership percentage is present but not a valid integer between 0 and 100, otherwise null.
 function validateOwnershipPct(value: string): string | null
 {
-	if (value.trim() === '') return null
+	if (value.trim() === '') return 'Ownership percentage is required.'
 
 	if (!/^\d+$/.test(value.trim()))
 	{
@@ -310,7 +310,7 @@ function buildValidationInput(
 
 // ─── Multer ───────────────────────────────────────────────────────────────────
 
-const uploadDir = process.env.UPLOAD_DIR !== undefined ? process.env.UPLOAD_DIR : 'uploads/'
+const uploadDir = path.resolve(process.cwd(), 'uploads')
 
 if (!fs.existsSync(uploadDir))
 {
@@ -417,7 +417,9 @@ function buildDocuments(ssmFile: Express.Multer.File, icFile: Express.Multer.Fil
 function resolveOwnershipPct(body: Record<string, unknown>): number | null
 {
 	const director = extractBodyDirector(body)
-	const raw      = extractBodyString(director, 'ownershipPct')
+	const nested   = extractBodyString(director, 'ownershipPct')
+	const flat     = extractBodyString(body, 'director.ownershipPct')
+	const raw      = nested !== '' ? nested : flat
 	if (raw === '') return null
 	const parsed = parseFloat(raw)
 	return isNaN(parsed) ? null : parsed

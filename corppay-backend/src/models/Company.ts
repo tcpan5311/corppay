@@ -61,7 +61,7 @@ const DirectorSchema = new Schema<IDirector>(
 	{
 		icPassport:   { type: String, required: true, trim: true, default: null },
 		role:         { type: String, enum: ['director', 'owner'], required: true, default: null },
-		ownershipPct: { type: Number, min: 0, max: 100, default: null },
+		ownershipPct: { type: Number, min: 0, max: 100, required: true },
 	},
 	{ _id: false }
 )

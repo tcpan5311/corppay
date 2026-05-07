@@ -145,7 +145,7 @@ export function validateIcPassport(value: string): string | null
 
 export function validateOwnershipPct(value: string): string | null
 {
-	if (value.trim() === '')          return null 
+	if (value.trim() === '')          return 'Ownership percentage is required.'
 
     if (!/^\d+$/.test(value.trim()))
     {

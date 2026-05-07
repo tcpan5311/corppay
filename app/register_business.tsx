@@ -1145,7 +1145,7 @@ export default function RegisterBusinessScreen()
 							</View>
 
 							<View className="mb-5">
-								<FieldLabel label="Ownership Percentage" optional={true} />
+								<FieldLabel label="Ownership Percentage" optional={null} />
 								<TextFieldInput
 									icon="percent-outline"
 									placeholder="e.g., 100"

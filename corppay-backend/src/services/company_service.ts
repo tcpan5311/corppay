@@ -48,7 +48,7 @@ export async function findCompanyBySsm(ssmNumber: string): Promise<ICompany | nu
 // Validates the payload, resolves duplicate SSM conflicts, and persists a new company record.
 export async function registerCompany(payload: RegisterCompanyPayload): Promise<ICompany>
 {
-	if (!payload.name || !payload.ssmNumber || !payload.entityType || !payload.registeredAddress || !payload.submittedBy)
+	if (!payload.name || !payload.ssmNumber || !payload.entityType || !payload.registeredAddress || !payload.submittedBy || payload.director.ownershipPct === null)
 	{
 		throw new Error('Missing required fields')
 	}
