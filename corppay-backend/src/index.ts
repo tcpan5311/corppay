@@ -3,9 +3,10 @@ import dotenv from 'dotenv'
 import express from 'express'
 import helmet from 'helmet'
 import mongoose from 'mongoose'
-import adminRoutes from './routes/admin_routes'
-import authRoutes from './routes/auth_routes'
-import companyRoutes from './routes/company_routes'
+import adminRoutes from './routes/admin_route'
+import authRoutes from './routes/auth_route'
+import companyRoutes from './routes/company_route'
+import onboardingRoutes from './routes/onboarding_route'
 
 dotenv.config()
 
@@ -17,6 +18,7 @@ app.use(express.json())
 app.use('/auth', authRoutes)
 app.use('/companies', companyRoutes)
 app.use('/admin/review', adminRoutes)   
+app.use('/onboarding', onboardingRoutes)
 
 app.get('/', (request, response) =>
 {

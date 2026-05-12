@@ -1,0 +1,171 @@
+import { Request, Response, Router } from 'express'
+import fs from 'fs'
+import mongoose from 'mongoose'
+import path from 'path'
+import QRCode from 'qrcode'
+import { adminTokenMiddleware, requireAdminRole, validateAdminSetupKey } from '../middleware/admin_middleware'
+import Company from '../models/Company'
+import { createSendOnboardingEmailParams, sendOnboardingEmail } from '../services/admin_onboarding_email_service'
+import { createOnboardingToken } from '../services/admin_onboarding_service'
+import { issueAdminSessionToken } from '../services/root_session_service'
+import { buildTotpUri, validateTotpCode } from '../services/root_totp_service'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Returns true when the filename contains only safe alphanumeric and extension characters.
+function isSafeFilename(filename: string): boolean
+{
+	return /^[a-zA-Z0-9_\-.]+$/.test(filename)
+}
+
+// Resolves the upload directory from the current working directory.
+function resolveUploadDir(): string
+{
+	return path.resolve(process.cwd(), 'uploads')
+}
+
+// Extracts the string value of a key from an unknown request body record, returning empty string on failure.
+function extractBodyString(body: Record<string, unknown>, key: string): string
+{
+	const val = body[key]
+	return typeof val === 'string' ? val.trim() : ''
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
+const router = Router()
+
+// Validates a 6-digit TOTP code and returns a signed session JWT on success.
+router.post('/validate-token', async (req: Request, res: Response) =>
+{
+	const body   = req.body as Record<string, unknown>
+	const code   = extractBodyString(body, 'code')
+	const result = await validateTotpCode(code)
+
+	if (!result.valid)
+	{
+		return res.status(401).json({ valid: false, error: result.reason })
+	}
+
+	try
+	{
+		const sessionToken = issueAdminSessionToken()
+		return res.status(200).json({ valid: true, sessionToken })
+	}
+	catch (e: unknown)
+	{
+		console.error('[admin_routes] session issuance error:', e)
+		return res.status(500).json({ valid: false, error: 'Session issuance failed.' })
+	}
+})
+
+// Returns a QR code PNG for TOTP authenticator enrollment, gated by the raw ADMIN_REVIEW_TOKEN as a setup key.
+router.get('/setup', async (req: Request, res: Response) =>
+{
+	const setupKey = typeof req.query['setup_key'] === 'string' ? req.query['setup_key'] : ''
+
+	if (!validateAdminSetupKey(setupKey))
+	{
+		return res.status(401).json({ error: 'Invalid setup key.' })
+	}
+
+	try
+	{
+		const uri   = buildTotpUri('AdminReview', 'admin')
+		const qrPng = await QRCode.toBuffer(uri)
+
+		res.setHeader('Content-Type', 'image/png')
+		res.setHeader('Cache-Control', 'no-store')
+		return res.send(qrPng)
+	}
+	catch (e: unknown)
+	{
+		console.error('[admin_routes] QR generation error:', e)
+		return res.status(500).json({ error: 'QR code generation failed.' })
+	}
+})
+
+// Returns all company registration records sorted by newest submission first.
+router.get('/companies', adminTokenMiddleware, async (_req: Request, res: Response) =>
+{
+	try
+	{
+		const companies = await Company.find({}).sort({ createdAt: -1 }).lean()
+		return res.json({ companies })
+	}
+	catch (err)
+	{
+		console.error('[admin_routes] companies fetch error:', err)
+		return res.status(500).json({ error: 'Failed to retrieve companies.' })
+	}
+})
+
+// Streams an uploaded document file to the client after session validation and filename sanitization.
+router.get('/file/:filename', adminTokenMiddleware, (req: Request<{ filename: string }>, res: Response) =>
+{
+	const filename  = req.params.filename
+	const uploadDir = resolveUploadDir()
+
+	if (!isSafeFilename(filename))
+	{
+		return res.status(400).json({ error: 'Invalid filename.' })
+	}
+
+	const filePath = path.resolve(path.join(uploadDir, filename))
+
+	if (!fs.existsSync(filePath))
+	{
+		return res.status(404).json({ error: 'File not found.', message: uploadDir })
+	}
+
+	return res.sendFile(filePath)
+})
+
+// Approves a pending company registration, generates a 24-hour onboarding token, and dispatches the setup email.
+router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id: string }>, res: Response) =>
+{
+	try
+	{
+		const company = await Company.findById(req.params.id)
+
+		if (!company)
+		{
+			return res.status(404).json({ error: 'Company not found.' })
+		}
+
+		if (company.status === 'approved')
+		{
+			return res.status(409).json({ error: 'Company is already approved.' })
+		}
+
+		company.status     = 'approved'
+		company.reviewedAt = new Date()
+		await company.save()
+
+		const companyObjectId = company._id as mongoose.Types.ObjectId
+
+		const tokenResult = await createOnboardingToken(
+			company.submittedBy,
+			company.ssmNumber,
+			companyObjectId,
+		)
+
+		const emailParams     = createSendOnboardingEmailParams()
+		emailParams.toAddress = company.submittedBy
+		emailParams.token     = tokenResult.token
+
+		await sendOnboardingEmail(emailParams)
+
+		return res.status(200).json({
+			message:   'Company approved. Onboarding email sent.',
+			companyId: company._id,
+		})
+	}
+	catch (err)
+	{
+		console.error('[admin_routes] approve error:', err)
+		return res.status(500).json({ error: 'Approval failed. Please try again.' })
+	}
+})
+
+export default router

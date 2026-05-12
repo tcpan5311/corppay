@@ -730,8 +730,8 @@ function Toast(props: ToastProps)
 
 	return (
 		<Animated.View
-			className="absolute bottom-10 left-6 right-6 bg-gray-900 rounded-2xl px-5 py-4 flex-row items-center self-center shadow-lg"
-			style={{ opacity, zIndex: 9999, elevation: 20, maxWidth: 400, alignSelf: 'center' }}
+			className="absolute bottom-10 left-6 right-6 bg-gray-900 rounded-2xl px-5 py-4 flex-row items-center self-center shadow-lg z-[9999] max-w-[400px]"
+			style={{ opacity, elevation: 20 }}
 			pointerEvents="none"
 		>
 			<MaterialCommunityIcons

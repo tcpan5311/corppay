@@ -6,9 +6,9 @@ import path from 'path'
 
 import { companyRateLimit } from '../middleware/company_middleware'
 import { EntityType, IUploadedDocument } from '../models/Company'
+import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/admin_confirm_email_service'
+import { createSavePendingRegistrationPayload, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
 import { findCompanyBySsm, getCompaniesByUser, getCompanyById, registerCompany } from '../services/company_service'
-import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/email_service'
-import { createSavePendingRegistrationPayload, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/pending_registration_service'
 
 // ─── Body Extraction ──────────────────────────────────────────────────────────
 

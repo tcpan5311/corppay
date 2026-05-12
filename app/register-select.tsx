@@ -2,10 +2,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import React from 'react'
 import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native'
 
 export default function RegisterSelectScreen()
@@ -47,7 +47,7 @@ export default function RegisterSelectScreen()
           {/* REGISTER NEW BUSINESS CARD */}
           <TouchableOpacity
             className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-4"
-            onPress={() => router.push('/register_business' as any)}
+            onPress={() => router.push('/register-business' as any)}
             activeOpacity={0.85}
           >
             <View className="flex-row items-center mb-3">

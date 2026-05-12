@@ -16,7 +16,7 @@ function AuthGuard({ children }: { children: React.ReactNode })
   {
     if (isLoading) return
 
-    const PUBLIC_ROUTES = ['login', 'register_select', 'register_business', 'admin']
+    const PUBLIC_ROUTES = ['login', 'register-select', 'register-business', 'admin']
     const inAuthGroup = PUBLIC_ROUTES.includes(segments[0] as string)
 
     if (!user && !inAuthGroup)

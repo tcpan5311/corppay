@@ -120,7 +120,7 @@ type StatsCardProps =
 	color: string
 }
 
-// Creates a fully initialized StatsCardProps with empty label, zero count and empty color.
+// Creates a fully initialized StatsCardProps with empty label, zero count, and empty color.
 function createStatsCardProps(): StatsCardProps
 {
 	return { label: '', count: 0, color: '' }
@@ -131,15 +131,17 @@ type CompanyCardProps =
 	company:      CompanyRecord
 	adminToken:   string
 	onPreviewDoc: (doc: DocumentRecord, token: string) => void
+	onApproved:   () => void
 }
 
-// Creates a fully initialized CompanyCardProps with a blank company record and no-op handler.
+// Creates a fully initialized CompanyCardProps with a blank company record and no-op handlers.
 function createCompanyCardProps(): CompanyCardProps
 {
 	return {
 		company:      createCompanyRecord(),
 		adminToken:   '',
 		onPreviewDoc: (_doc, _token) => {},
+		onApproved:   () => {},
 	}
 }
 
@@ -156,8 +158,8 @@ function resolveAdminToken(): string
 // Clears the admin token from the global object.
 function clearAdminToken(): void
 {
-	const g                = global as Record<string, unknown>
-	g['__adminToken']      = ''
+	const g           = global as Record<string, unknown>
+	g['__adminToken'] = ''
 }
 
 // Formats an ISO date string into a locale-aware readable string, returning an em-dash on failure.
@@ -204,10 +206,7 @@ function resolveDocLabel(fieldName: string | null): string
 function extractFilename(storagePath: string | null): string
 {
 	if (!storagePath) return ''
-
-	return storagePath
-		.split(/[/\\]/)   // handles BOTH / and \
-		.pop() ?? ''
+	return storagePath.split(/[/\\]/).pop() ?? ''
 }
 
 // Formats a byte count as a human-readable size string.
@@ -268,16 +267,29 @@ async function fetchDocumentBlob(token: string, filename: string): Promise<strin
 	return URL.createObjectURL(blob)
 }
 
+// Approves a company registration and triggers the onboarding email dispatch.
+async function approveCompany(token: string, companyId: string): Promise<void>
+{
+	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/approve`, {
+		method:  'POST',
+		headers: { 'x-admin-token': token },
+	})
+
+	if (!response.ok)
+	{
+		const data = (await response.json()) as Record<string, unknown>
+		const msg  = typeof data['error'] === 'string' ? data['error'] : 'Approval failed.'
+		throw new Error(msg)
+	}
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Renders a statistics summary card showing a label, count, and accent color.
 function StatsCard(props: StatsCardProps)
 {
 	return (
-		<View
-			className="flex-1 bg-white rounded-2xl px-4 py-3 border border-gray-100 shadow-sm items-center"
-			style={{ minWidth: 72 }}
-		>
+		<View className="flex-1 bg-white rounded-2xl px-4 py-3 border border-gray-100 shadow-sm items-center min-w-[72px]">
 			<Text className="text-gray-500 text-xs mb-1">{props.label}</Text>
 			<Text className="text-xl font-bold" style={{ color: props.color }}>
 				{props.count}
@@ -297,14 +309,34 @@ function DetailRow({ label, value }: { label: string; value: string })
 	)
 }
 
-// Renders a single company registration as a card with all fields and document preview controls.
+// Renders a single company registration card with info sections, document preview, and an approve action.
 function CompanyCard(props: CompanyCardProps)
 {
-	const { company, adminToken, onPreviewDoc } = props
+	const { company, adminToken, onPreviewDoc, onApproved } = props
+
+	const [isApproving, setIsApproving] = useState<boolean>(false)
+	const [approveError, setApproveError] = useState<string>('')
 
 	const statusColor = resolveStatusColor(company.status)
 	const statusBg    = resolveStatusBg(company.status)
 	const isWeb       = Platform.OS === 'web'
+
+	// Calls the approve endpoint, clears error state on success, and notifies the parent to refresh.
+	async function handleApprove(): Promise<void>
+	{
+		setIsApproving(true)
+		setApproveError('')
+		try
+		{
+			await approveCompany(adminToken, company._id)
+			onApproved()
+		}
+		catch (e)
+		{
+			setApproveError(resolveErrorMessage(e))
+			setIsApproving(false)
+		}
+	}
 
 	return (
 		<View className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-hidden">
@@ -339,10 +371,10 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 
 					<View className="bg-gray-50 rounded-xl px-4 py-3">
-						<DetailRow label="Entity Type"         value={resolveEntityLabel(company.entityType)} />
-						<DetailRow label="Registered Address"  value={company.registeredAddress} />
-						<DetailRow label="Submitted By"        value={company.submittedBy} />
-						<DetailRow label="Submitted At"        value={formatDate(company.createdAt)} />
+						<DetailRow label="Entity Type"        value={resolveEntityLabel(company.entityType)} />
+						<DetailRow label="Registered Address" value={company.registeredAddress} />
+						<DetailRow label="Submitted By"       value={company.submittedBy} />
+						<DetailRow label="Submitted At"       value={formatDate(company.createdAt)} />
 					</View>
 				</View>
 
@@ -445,6 +477,49 @@ function CompanyCard(props: CompanyCardProps)
 					<View className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
 						<Text className="text-amber-700 text-xs font-semibold mb-1">Review Note</Text>
 						<Text className="text-amber-800 text-sm">{company.reviewNote}</Text>
+					</View>
+				)}
+
+				{/* Approve action — only shown for pending submissions */}
+				{company.status === 'pending' && (
+					<View className="mt-4">
+						{approveError !== '' && (
+							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+								<MaterialCommunityIcons
+									name="alert-circle-outline"
+									size={14}
+									color="#DC2626"
+									style={{ marginRight: 8 }}
+								/>
+								<Text className="text-red-600 text-xs flex-1">{approveError}</Text>
+							</View>
+						)}
+						<TouchableOpacity
+							onPress={handleApprove}
+							disabled={isApproving}
+							className={`rounded-xl py-3 flex-row items-center justify-center ${
+								isApproving ? 'bg-gray-200' : 'bg-emerald-600'
+							}`}
+							style={isWeb ? { cursor: 'pointer' } as object : {}}
+							accessibilityRole="button"
+							accessibilityLabel="Approve registration"
+						>
+							{isApproving ? (
+								<ActivityIndicator size="small" color="#6B7280" />
+							) : (
+								<>
+									<MaterialCommunityIcons
+										name="check-circle-outline"
+										size={16}
+										color="#FFFFFF"
+										style={{ marginRight: 6 }}
+									/>
+									<Text className="text-white text-sm font-semibold">
+										Approve Registration
+									</Text>
+								</>
+							)}
+						</TouchableOpacity>
 					</View>
 				)}
 
@@ -605,7 +680,7 @@ export default function AdminDashboardScreen()
 					<View className="px-6 pt-6 pb-12">
 
 						{/* Stats row */}
-						<View className="flex-row mb-6" style={{ gap: 10 }}>
+						<View className="flex-row mb-6 gap-2.5">
 							<StatsCard label="Total"    count={companies.length} color="#2563EB" />
 							<StatsCard label="Pending"  count={pendingCount}     color="#D97706" />
 							<StatsCard label="Approved" count={approvedCount}    color="#059669" />
@@ -659,6 +734,7 @@ export default function AdminDashboardScreen()
 									company={company}
 									adminToken={adminToken}
 									onPreviewDoc={handlePreviewDoc}
+									onApproved={loadCompanies}
 								/>
 							)
 						)}
@@ -675,37 +751,11 @@ export default function AdminDashboardScreen()
 					visible={preview.visible}
 					onRequestClose={handleClosePreview}
 				>
-					<View
-						style={{
-							flex:            1,
-							backgroundColor: 'rgba(0,0,0,0.75)',
-							alignItems:      'center',
-							justifyContent:  'center',
-							padding:         24,
-						}}
-					>
-						<View
-							style={{
-								backgroundColor: '#FFFFFF',
-								borderRadius:    16,
-								width:           '100%',
-								maxWidth:        820,
-								height:          '88%',
-								overflow:        'hidden',
-							}}
-						>
+					<View className="flex-1 bg-black/75 items-center justify-center p-6">
+						<View className="bg-white rounded-2xl w-full max-w-[820px] h-[88%] overflow-hidden">
+
 							{/* Modal header */}
-							<View
-								style={{
-									flexDirection:    'row',
-									alignItems:       'center',
-									justifyContent:   'space-between',
-									paddingHorizontal: 20,
-									paddingVertical:   14,
-									borderBottomWidth: 1,
-									borderBottomColor: '#E5E7EB',
-								}}
-							>
+							<View className="flex-row items-center justify-between px-5 py-3.5 border-b border-gray-200">
 								<View className="flex-row items-center flex-1 mr-3">
 									<MaterialCommunityIcons
 										name="file-document-outline"
@@ -714,7 +764,7 @@ export default function AdminDashboardScreen()
 										style={{ marginRight: 8 }}
 									/>
 									<Text
-										style={{ fontSize: 14, fontWeight: '600', color: '#1F2937', flex: 1 }}
+										className="text-sm font-semibold text-gray-800 flex-1"
 										numberOfLines={1}
 									>
 										{preview.filename}
@@ -722,7 +772,8 @@ export default function AdminDashboardScreen()
 								</View>
 								<TouchableOpacity
 									onPress={handleClosePreview}
-									style={{ padding: 4, cursor: 'pointer' } as object}
+									className="p-1"
+									style={{ cursor: 'pointer' } as object}
 									accessibilityRole="button"
 									accessibilityLabel="Close preview"
 								>
@@ -731,46 +782,31 @@ export default function AdminDashboardScreen()
 							</View>
 
 							{/* Modal body */}
-							<View style={{ flex: 1 }}>
+							<View className="flex-1">
 
 								{preview.loading && (
-									<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+									<View className="flex-1 items-center justify-center">
 										<ActivityIndicator size="large" color="#2563EB" />
-										<Text style={{ color: '#6B7280', marginTop: 12, fontSize: 14 }}>
+										<Text className="text-gray-500 mt-3 text-sm">
 											Loading document…
 										</Text>
 									</View>
 								)}
 
 								{!preview.loading && preview.error !== '' && (
-									<View
-										style={{
-											flex:           1,
-											alignItems:     'center',
-											justifyContent: 'center',
-											padding:        24,
-										}}
-									>
+									<View className="flex-1 items-center justify-center p-6">
 										<MaterialCommunityIcons
 											name="alert-circle-outline"
 											size={40}
 											color="#DC2626"
 										/>
-										<Text
-											style={{
-												color:     '#DC2626',
-												marginTop: 12,
-												fontSize:  14,
-												textAlign: 'center',
-											}}
-										>
+										<Text className="text-red-600 mt-3 text-sm text-center">
 											{preview.error}
 										</Text>
 									</View>
 								)}
 
 								{!preview.loading && preview.error === '' && preview.blobUrl !== '' && (
-									// iframe is valid on web; @ts-ignore suppresses native-only type narrowing
 									// @ts-ignore
 									<iframe
 										src={preview.blobUrl}
