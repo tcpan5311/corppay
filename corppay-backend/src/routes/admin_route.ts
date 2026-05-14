@@ -3,6 +3,7 @@ import fs from 'fs'
 import mongoose from 'mongoose'
 import path from 'path'
 import QRCode from 'qrcode'
+import { validateTotpInput } from '../../src/validation/totpValidation'
 import { adminTokenMiddleware, requireAdminRole, validateAdminSetupKey } from '../middleware/admin_middleware'
 import Company from '../models/Company'
 import { createSendOnboardingEmailParams, sendOnboardingEmail } from '../services/admin_onboarding_email_service'
@@ -35,11 +36,18 @@ function extractBodyString(body: Record<string, unknown>, key: string): string
 
 const router = Router()
 
-// Validates a 6-digit TOTP code and returns a signed session JWT on success.
+// Validates input format and TOTP code correctness, then returns a signed session JWT on success.
 router.post('/validate-token', async (req: Request, res: Response) =>
 {
-	const body   = req.body as Record<string, unknown>
-	const code   = extractBodyString(body, 'code')
+	const body       = req.body as Record<string, unknown>
+	const code       = extractBodyString(body, 'code')
+	const inputError = validateTotpInput(code)
+
+	if (inputError !== null)
+	{
+		return res.status(400).json({ valid: false, error: inputError })
+	}
+
 	const result = await validateTotpCode(code)
 
 	if (!result.valid)
@@ -165,6 +173,43 @@ router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id
 	{
 		console.error('[admin_routes] approve error:', err)
 		return res.status(500).json({ error: 'Approval failed. Please try again.' })
+	}
+})
+
+// Rejects a pending company registration and persists an optional review note supplied by the admin.
+router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id: string }>, res: Response) =>
+{
+	try
+	{
+		const body       = req.body as Record<string, unknown>
+		const reviewNote = extractBodyString(body, 'reviewNote')
+
+		const company = await Company.findById(req.params.id)
+
+		if (!company)
+		{
+			return res.status(404).json({ error: 'Company not found.' })
+		}
+
+		if (company.status === 'rejected')
+		{
+			return res.status(409).json({ error: 'Company is already rejected.' })
+		}
+
+		company.status     = 'rejected'
+		company.reviewedAt = new Date()
+		company.reviewNote = reviewNote !== '' ? reviewNote : null
+		await company.save()
+
+		return res.status(200).json({
+			message:   'Company rejected.',
+			companyId: company._id,
+		})
+	}
+	catch (err)
+	{
+		console.error('[admin_routes] reject error:', err)
+		return res.status(500).json({ error: 'Rejection failed. Please try again.' })
 	}
 })
 

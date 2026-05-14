@@ -11,6 +11,8 @@ import {
 	View,
 } from 'react-native'
 
+import { isTotpInputComplete, validateTotpInput } from '../../../corppay-backend/src/validation/totpValidation'
+
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
 type TokenGateState =
@@ -95,35 +97,13 @@ export default function AdminReviewGateScreen()
 
 	const [state, setState] = useState<TokenGateState>(createTokenGateState())
 
-	// Updates the code field value in state.
-	const handleCodeChange = (v: string) =>
+	// Sends the validated code to the server, stores the session token on success, and navigates to the dashboard.
+	async function handleSubmitCode(code: string): Promise<void>
 	{
-		setState((prev) => ({ ...prev, code: v, errorMsg: '' }))
-	}
-
-	// Toggles the secure text entry visibility for the code field.
-	const handleToggleShow = () =>
-	{
-		setState((prev) => ({ ...prev, showCode: !prev.showCode }))
-	}
-
-	// Submits the TOTP code, stores the returned session token in global state on success, and navigates to the dashboard.
-	async function handleSubmit(): Promise<void>
-	{
-		const trimmed = state.code.trim()
-
-		if (trimmed === '')
-		{
-			setState((prev) => ({ ...prev, errorMsg: 'Please enter the 6-digit authenticator code.' }))
-			return
-		}
-
 		setState((prev) => ({ ...prev, isChecking: true, errorMsg: '' }))
-
 		try
 		{
-			const result = await postValidateToken(trimmed)
-
+			const result = await postValidateToken(code)
 			if (!result.valid)
 			{
 				setState((prev) => ({
@@ -133,10 +113,8 @@ export default function AdminReviewGateScreen()
 				}))
 				return
 			}
-
 			const globalRecord           = global as Record<string, unknown>
 			globalRecord['__adminToken'] = result.sessionToken
-
 			router.replace('/admin/review/dashboard' as never)
 		}
 		catch (e)
@@ -147,6 +125,50 @@ export default function AdminReviewGateScreen()
 				errorMsg:   resolveErrorMessage(e),
 			}))
 		}
+	}
+
+	// Updates the code field, shows an error for non-digit characters, and auto-submits when exactly 6 digits are entered.
+	const handleCodeChange = (v: string) =>
+	{
+		const digitError = v.length > 0 && !/^\d+$/.test(v)
+			? 'Code must contain digits only (0–9).'
+			: ''
+		setState((prev) => ({ ...prev, code: v, errorMsg: digitError }))
+		if (isTotpInputComplete(v))
+		{
+			handleSubmitCode(v.trim())
+		}
+	}
+
+	// Toggles the secure text entry visibility for the code field.
+	const handleToggleShow = () =>
+	{
+		setState((prev) => ({ ...prev, showCode: !prev.showCode }))
+	}
+
+	// Runs full input validation when the code field loses focus and surfaces any length or format error.
+	const handleCodeBlur = () =>
+	{
+		const inputError = validateTotpInput(state.code)
+		if (inputError !== null)
+		{
+			setState((prev) => ({ ...prev, errorMsg: inputError }))
+		}
+	}
+
+	// Validates the current code field and delegates to handleSubmitCode when the input is well-formed.
+	async function handleSubmit(): Promise<void>
+	{
+		const trimmed    = state.code.trim()
+		const inputError = validateTotpInput(trimmed)
+
+		if (inputError !== null)
+		{
+			setState((prev) => ({ ...prev, errorMsg: inputError }))
+			return
+		}
+
+		await handleSubmitCode(trimmed)
 	}
 
 	const hasError        = state.errorMsg !== ''
@@ -164,7 +186,7 @@ export default function AdminReviewGateScreen()
 
 						{/* Icon badge */}
 						<View className="items-center mb-8">
-							<View className="w-20 h-20 bg-gray-900 rounded-3xl items-center justify-center shadow-lg mb-4">
+							<View className="w-20 h-20 bg-blue-600 rounded-3xl items-center justify-center shadow-lg mb-4">
 								<MaterialCommunityIcons name="shield-lock-outline" size={40} color="#FFFFFF" />
 							</View>
 							<Text className="text-gray-900 text-2xl font-bold text-center">Admin Access</Text>
@@ -194,6 +216,7 @@ export default function AdminReviewGateScreen()
 									placeholderTextColor="#9CA3AF"
 									value={state.code}
 									onChangeText={handleCodeChange}
+									onBlur={handleCodeBlur}
 									secureTextEntry={!state.showCode}
 									autoCapitalize="none"
 									autoCorrect={false}
@@ -231,7 +254,7 @@ export default function AdminReviewGateScreen()
 							className={`rounded-2xl py-4 items-center shadow-md ${
 								state.isChecking || state.code.trim() === ''
 									? 'bg-gray-300 shadow-gray-200'
-									: 'bg-gray-900 shadow-gray-400'
+									: 'bg-blue-600 shadow-blue-300'
 							}`}
 							onPress={handleSubmit}
 							disabled={state.isChecking || state.code.trim() === ''}

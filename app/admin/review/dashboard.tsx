@@ -7,6 +7,7 @@ import {
 	Platform,
 	ScrollView,
 	Text,
+	TextInput,
 	TouchableOpacity,
 	View,
 } from 'react-native'
@@ -131,7 +132,7 @@ type CompanyCardProps =
 	company:      CompanyRecord
 	adminToken:   string
 	onPreviewDoc: (doc: DocumentRecord, token: string) => void
-	onApproved:   () => void
+	onRefresh:    () => void
 }
 
 // Creates a fully initialized CompanyCardProps with a blank company record and no-op handlers.
@@ -141,7 +142,7 @@ function createCompanyCardProps(): CompanyCardProps
 		company:      createCompanyRecord(),
 		adminToken:   '',
 		onPreviewDoc: (_doc, _token) => {},
-		onApproved:   () => {},
+		onRefresh:    () => {},
 	}
 }
 
@@ -283,6 +284,26 @@ async function approveCompany(token: string, companyId: string): Promise<void>
 	}
 }
 
+// Rejects a company registration and persists the supplied review note on the server.
+async function rejectCompany(token: string, companyId: string, reviewNote: string): Promise<void>
+{
+	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/reject`, {
+		method:  'POST',
+		headers: {
+			'x-admin-token': token,
+			'Content-Type':  'application/json',
+		},
+		body: JSON.stringify({ reviewNote }),
+	})
+
+	if (!response.ok)
+	{
+		const data = (await response.json()) as Record<string, unknown>
+		const msg  = typeof data['error'] === 'string' ? data['error'] : 'Rejection failed.'
+		throw new Error(msg)
+	}
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Renders a statistics summary card showing a label, count, and accent color.
@@ -312,10 +333,13 @@ function DetailRow({ label, value }: { label: string; value: string })
 // Renders a single company registration card with info sections, document preview, and an approve action.
 function CompanyCard(props: CompanyCardProps)
 {
-	const { company, adminToken, onPreviewDoc, onApproved } = props
+	const { company, adminToken, onPreviewDoc, onRefresh } = props
 
 	const [isApproving, setIsApproving] = useState<boolean>(false)
 	const [approveError, setApproveError] = useState<string>('')
+	const [isRejecting,  setIsRejecting]  = useState<boolean>(false)
+	const [rejectError,  setRejectError]  = useState<string>('')
+	const [rejectNote,   setRejectNote]   = useState<string>('')
 
 	const statusColor = resolveStatusColor(company.status)
 	const statusBg    = resolveStatusBg(company.status)
@@ -329,12 +353,29 @@ function CompanyCard(props: CompanyCardProps)
 		try
 		{
 			await approveCompany(adminToken, company._id)
-			onApproved()
+			onRefresh()
 		}
 		catch (e)
 		{
 			setApproveError(resolveErrorMessage(e))
 			setIsApproving(false)
+		}
+	}
+
+	// Calls the reject endpoint with the current note, clears error state on success, and notifies the parent to refresh.
+	async function handleReject(): Promise<void>
+	{
+		setIsRejecting(true)
+		setRejectError('')
+		try
+		{
+			await rejectCompany(adminToken, company._id, rejectNote)
+			onRefresh()
+		}
+		catch (e)
+		{
+			setRejectError(resolveErrorMessage(e))
+			setIsRejecting(false)
 		}
 	}
 
@@ -480,9 +521,11 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 				)}
 
-				{/* Approve action — only shown for pending submissions */}
+				{/* Approve and Reject actions — only shown for pending submissions */}
 				{company.status === 'pending' && (
 					<View className="mt-4">
+
+						{/* Approve */}
 						{approveError !== '' && (
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons
@@ -496,9 +539,9 @@ function CompanyCard(props: CompanyCardProps)
 						)}
 						<TouchableOpacity
 							onPress={handleApprove}
-							disabled={isApproving}
-							className={`rounded-xl py-3 flex-row items-center justify-center ${
-								isApproving ? 'bg-gray-200' : 'bg-emerald-600'
+							disabled={isApproving || isRejecting}
+							className={`rounded-xl py-3 flex-row items-center justify-center mb-4 ${
+								isApproving || isRejecting ? 'bg-gray-200' : 'bg-emerald-600'
 							}`}
 							style={isWeb ? { cursor: 'pointer' } as object : {}}
 							accessibilityRole="button"
@@ -520,6 +563,67 @@ function CompanyCard(props: CompanyCardProps)
 								</>
 							)}
 						</TouchableOpacity>
+
+						{/* Divider */}
+						<View className="border-t border-gray-100 mb-4" />
+
+						{/* Reject note input */}
+						<Text className="text-gray-400 text-xs uppercase tracking-wide mb-1.5">
+							Rejection Reason (optional)
+						</Text>
+						<TextInput
+							value={rejectNote}
+							onChangeText={setRejectNote}
+							placeholder="Describe why this application is being rejected…"
+							placeholderTextColor="#9CA3AF"
+							multiline
+							numberOfLines={2}
+							editable={!isRejecting && !isApproving}
+							className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-sm mb-3"
+							style={{ textAlignVertical: 'top' }}
+						/>
+
+						{/* Reject error */}
+						{rejectError !== '' && (
+							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+								<MaterialCommunityIcons
+									name="alert-circle-outline"
+									size={14}
+									color="#DC2626"
+									style={{ marginRight: 8 }}
+								/>
+								<Text className="text-red-600 text-xs flex-1">{rejectError}</Text>
+							</View>
+						)}
+
+						{/* Reject button */}
+						<TouchableOpacity
+							onPress={handleReject}
+							disabled={isRejecting || isApproving}
+							className={`rounded-xl py-3 flex-row items-center justify-center ${
+								isRejecting || isApproving ? 'bg-gray-200' : 'bg-red-600'
+							}`}
+							style={isWeb ? { cursor: 'pointer' } as object : {}}
+							accessibilityRole="button"
+							accessibilityLabel="Reject registration"
+						>
+							{isRejecting ? (
+								<ActivityIndicator size="small" color="#6B7280" />
+							) : (
+								<>
+									<MaterialCommunityIcons
+										name="close-circle-outline"
+										size={16}
+										color="#FFFFFF"
+										style={{ marginRight: 6 }}
+									/>
+									<Text className="text-white text-sm font-semibold">
+										Reject Registration
+									</Text>
+								</>
+							)}
+						</TouchableOpacity>
+
 					</View>
 				)}
 
@@ -734,7 +838,7 @@ export default function AdminDashboardScreen()
 									company={company}
 									adminToken={adminToken}
 									onPreviewDoc={handlePreviewDoc}
-									onApproved={loadCompanies}
+									onRefresh={loadCompanies}
 								/>
 							)
 						)}
