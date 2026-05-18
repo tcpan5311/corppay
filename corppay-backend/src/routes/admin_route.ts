@@ -8,6 +8,9 @@ import { adminTokenMiddleware, requireAdminRole, validateAdminSetupKey } from '.
 import Company from '../models/Company'
 import { createSendOnboardingEmailParams, sendOnboardingEmail } from '../services/admin_onboarding_email_service'
 import { createOnboardingToken } from '../services/admin_onboarding_service'
+import { createSendRejectionEmailParams, sendRejectionEmail } from '../services/admin_rejection_email_service'
+import { createSendResubmissionEmailParams, sendResubmissionEmail } from '../services/admin_resubmission_email_service'
+import { createResubmissionToken } from '../services/admin_resubmission_service'
 import { issueAdminSessionToken } from '../services/root_session_service'
 import { buildTotpUri, validateTotpCode } from '../services/root_totp_service'
 
@@ -176,7 +179,7 @@ router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id
 	}
 })
 
-// Rejects a pending company registration and persists an optional review note supplied by the admin.
+// Rejects a pending company registration, persists an optional review note, and dispatches a rejection notification email.
 router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id: string }>, res: Response) =>
 {
 	try
@@ -201,8 +204,14 @@ router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id:
 		company.reviewNote = reviewNote !== '' ? reviewNote : null
 		await company.save()
 
+		const emailParams        = createSendRejectionEmailParams()
+		emailParams.toAddress    = company.submittedBy
+		emailParams.reviewNote   = reviewNote
+
+		await sendRejectionEmail(emailParams)
+
 		return res.status(200).json({
-			message:   'Company rejected.',
+			message:   'Company rejected. Notification email sent.',
 			companyId: company._id,
 		})
 	}
@@ -210,6 +219,54 @@ router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id:
 	{
 		console.error('[admin_routes] reject error:', err)
 		return res.status(500).json({ error: 'Rejection failed. Please try again.' })
+	}
+})
+
+// Re-enables a rejected company registration for resubmission, generates a 24-hour token, and dispatches the invitation email.
+router.post('/companies/:id/reenable', requireAdminRole, async (req: Request<{ id: string }>, res: Response) =>
+{
+	try
+	{
+		const company = await Company.findById(req.params.id)
+
+		if (!company)
+		{
+			return res.status(404).json({ error: 'Company not found.' })
+		}
+
+		if (company.status !== 'rejected')
+		{
+			return res.status(409).json({ error: 'Only rejected applications can be re-enabled.' })
+		}
+
+		company.status            = 'awaiting_resubmit'
+		company.reviewNote        = null
+		company.resubmissionCount = company.resubmissionCount + 1
+		await company.save()
+
+		const companyObjectId = company._id as mongoose.Types.ObjectId
+
+		const tokenResult = await createResubmissionToken(
+			company.submittedBy,
+			company.ssmNumber,
+			companyObjectId,
+		)
+
+		const emailParams        = createSendResubmissionEmailParams()
+		emailParams.toAddress    = company.submittedBy
+		emailParams.token        = tokenResult.token
+
+		await sendResubmissionEmail(emailParams)
+
+		return res.status(200).json({
+			message:   'Application re-enabled. Resubmission email sent.',
+			companyId: company._id,
+		})
+	}
+	catch (err)
+	{
+		console.error('[admin_routes] reenable error:', err)
+		return res.status(500).json({ error: 'Re-enable failed. Please try again.' })
 	}
 })
 

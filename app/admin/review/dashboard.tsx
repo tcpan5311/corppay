@@ -174,16 +174,18 @@ function formatDate(iso: string): string
 // Returns the hex color string associated with the given registration status.
 function resolveStatusColor(status: string): string
 {
-	if (status === 'approved') return '#059669'
-	if (status === 'rejected') return '#DC2626'
+	if (status === 'approved')          return '#059669'
+	if (status === 'rejected')          return '#DC2626'
+	if (status === 'awaiting_resubmit') return '#7C3AED'
 	return '#D97706'
 }
 
 // Returns the background color string associated with the given registration status.
 function resolveStatusBg(status: string): string
 {
-	if (status === 'approved') return '#ECFDF5'
-	if (status === 'rejected') return '#FEF2F2'
+	if (status === 'approved')          return '#ECFDF5'
+	if (status === 'rejected')          return '#FEF2F2'
+	if (status === 'awaiting_resubmit') return '#F5F3FF'
 	return '#FFFBEB'
 }
 
@@ -304,6 +306,22 @@ async function rejectCompany(token: string, companyId: string, reviewNote: strin
 	}
 }
 
+// Transitions a rejected company back to awaiting_resubmit and dispatches the resubmission invitation email.
+async function reenableCompany(token: string, companyId: string): Promise<void>
+{
+	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/reenable`, {
+		method:  'POST',
+		headers: { 'x-admin-token': token },
+	})
+
+	if (!response.ok)
+	{
+		const data = (await response.json()) as Record<string, unknown>
+		const msg  = typeof data['error'] === 'string' ? data['error'] : 'Re-enable failed.'
+		throw new Error(msg)
+	}
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Renders a statistics summary card showing a label, count, and accent color.
@@ -340,6 +358,8 @@ function CompanyCard(props: CompanyCardProps)
 	const [isRejecting,  setIsRejecting]  = useState<boolean>(false)
 	const [rejectError,  setRejectError]  = useState<string>('')
 	const [rejectNote,   setRejectNote]   = useState<string>('')
+	const [isReenabling,  setIsReenabling]  = useState<boolean>(false)
+	const [reenableError, setReenableError] = useState<string>('')
 
 	const statusColor = resolveStatusColor(company.status)
 	const statusBg    = resolveStatusBg(company.status)
@@ -376,6 +396,23 @@ function CompanyCard(props: CompanyCardProps)
 		{
 			setRejectError(resolveErrorMessage(e))
 			setIsRejecting(false)
+		}
+	}
+
+	// Calls the re-enable endpoint, clears error state on success, and notifies the parent to refresh.
+	async function handleReenable(): Promise<void>
+	{
+		setIsReenabling(true)
+		setReenableError('')
+		try
+		{
+			await reenableCompany(adminToken, company._id)
+			onRefresh()
+		}
+		catch (e)
+		{
+			setReenableError(resolveErrorMessage(e))
+			setIsReenabling(false)
 		}
 	}
 
@@ -627,6 +664,49 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 				)}
 
+				{/* Re-enable action — only shown for rejected applications */}
+				{company.status === 'rejected' && (
+					<View className="mt-4">
+						{reenableError !== '' && (
+							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+								<MaterialCommunityIcons
+									name="alert-circle-outline"
+									size={14}
+									color="#DC2626"
+									style={{ marginRight: 8 }}
+								/>
+								<Text className="text-red-600 text-xs flex-1">{reenableError}</Text>
+							</View>
+						)}
+						<TouchableOpacity
+							onPress={handleReenable}
+							disabled={isReenabling}
+							className={`rounded-xl py-3 flex-row items-center justify-center ${
+								isReenabling ? 'bg-gray-200' : 'bg-violet-600'
+							}`}
+							style={isWeb ? { cursor: 'pointer' } as object : {}}
+							accessibilityRole="button"
+							accessibilityLabel="Re-enable application for resubmission"
+						>
+							{isReenabling ? (
+								<ActivityIndicator size="small" color="#6B7280" />
+							) : (
+								<>
+									<MaterialCommunityIcons
+										name="refresh"
+										size={16}
+										color="#FFFFFF"
+										style={{ marginRight: 6 }}
+									/>
+									<Text className="text-white text-sm font-semibold">
+										Re-enable for Resubmission
+									</Text>
+								</>
+							)}
+						</TouchableOpacity>
+					</View>
+				)}
+
 			</View>
 		</View>
 	)
@@ -646,17 +726,20 @@ export default function AdminDashboardScreen()
 
 	const adminToken = resolveAdminToken()
 
-	useEffect(
+	useEffect
+	(
 		() =>
 		{
-			if (adminToken === '')
+			if (adminToken !== '')
 			{
-				router.replace('/admin/review' as never)
+				loadCompanies()
 				return
 			}
-			loadCompanies()
+
+			const timerId = setTimeout(() => router.replace('/admin/review' as never), 0)
+			return () => clearTimeout(timerId)
 		},
-		[]
+		[],
 	)
 
 	// Loads all companies from the API and updates state.

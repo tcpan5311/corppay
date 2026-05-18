@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 
 export type EntityType         = 'sdn_bhd' | 'sole_proprietor'
 export type DirectorRole       = 'director' | 'owner'
-export type RegistrationStatus = 'pending' | 'approved' | 'rejected'
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected' | 'awaiting_resubmit'
 
 export type IDirector =
 {
@@ -23,19 +23,20 @@ export type IUploadedDocument =
 
 export interface ICompany extends Document
 {
-	name:              string
-	ssmNumber:         string
-	entityType:        EntityType
-	registeredAddress: string
-	director:          IDirector
-	documents:         IUploadedDocument[]
-	status:            RegistrationStatus
-	submittedBy:       string
-	reviewedBy:        mongoose.Types.ObjectId | null
-	reviewedAt:        Date | null
-	reviewNote:        string | null
-	createdAt:         Date
-	updatedAt:         Date
+	name:               string
+	ssmNumber:          string
+	entityType:         EntityType
+	registeredAddress:  string
+	director:           IDirector
+	documents:          IUploadedDocument[]
+	status:             RegistrationStatus
+	submittedBy:        string
+	reviewedBy:         mongoose.Types.ObjectId | null
+	reviewedAt:         Date | null
+	reviewNote:         string | null
+	resubmissionCount:  number
+	createdAt:          Date
+	updatedAt:          Date
 }
 
 // Creates a fully initialized IDirector with all fields set to null.
@@ -86,11 +87,12 @@ const CompanySchema = new Schema<ICompany>(
 		registeredAddress: { type: String, required: true, trim: true },
 		director:          { type: DirectorSchema, required: true },
 		documents:         { type: [UploadedDocumentSchema], default: [] },
-		status:            { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+		status:             { type: String, enum: ['pending', 'approved', 'rejected', 'awaiting_resubmit'], default: 'pending' },
 		submittedBy:       { type: String, required: true },
 		reviewedBy:        { type: Schema.Types.ObjectId, ref: 'User', default: null },
 		reviewedAt:        { type: Date, default: null },
-		reviewNote:        { type: String, default: null },
+		reviewNote:         { type: String, default: null },
+		resubmissionCount:  { type: Number, default: 0 },
 	},
 	{ timestamps: true }
 )

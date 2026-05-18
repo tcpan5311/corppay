@@ -1,35 +1,35 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+	ActivityIndicator,
+	Animated,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
 } from 'react-native';
 import {
-    FormErrors,
-    TouchedFields,
-    createFormErrors,
-    createTouchedFields,
-    hasErrors,
-    normalizeIcPassport,
-    touchAllFields,
-    validateAllFields,
-    validateCompanyName,
-    validateDirectorRole,
-    validateEntityType,
-    validateIcPassport,
-    validateOwnershipPct,
-    validateRegisteredAddress,
-    validateRegisteredEmail,
-    validateSsmNumber,
-    validateUploadedFile,
+	FormErrors,
+	TouchedFields,
+	createFormErrors,
+	createTouchedFields,
+	hasErrors,
+	normalizeIcPassport,
+	touchAllFields,
+	validateAllFields,
+	validateCompanyName,
+	validateDirectorRole,
+	validateEntityType,
+	validateIcPassport,
+	validateOwnershipPct,
+	validateRegisteredAddress,
+	validateRegisteredEmail,
+	validateSsmNumber,
+	validateUploadedFile,
 } from '../corppay-backend/src/validation/registerBusinessValidation';
 
 type EntityType   = 'sdn_bhd' | 'sole_proprietor'
@@ -183,6 +183,35 @@ function createSubmitRegistrationParams(): SubmitRegistrationParams
 		directorRole:      null,
 		ownershipPct:      null,
 		submittedBy:       null,
+		ssmDoc:            null,
+		icDoc:             null,
+	}
+}
+
+type SubmitResubmissionParams =
+{
+	resubmissionToken: string | null
+	companyName:       string | null
+	entityType:        EntityType | null
+	registeredAddress: string | null
+	icPassport:        string | null
+	directorRole:      DirectorRole | null
+	ownershipPct:      string | null
+	ssmDoc:            UploadedFile | null
+	icDoc:             UploadedFile | null
+}
+
+// Creates a fully initialized SubmitResubmissionParams with all fields set to null.
+function createSubmitResubmissionParams(): SubmitResubmissionParams
+{
+	return {
+		resubmissionToken: null,
+		companyName:       null,
+		entityType:        null,
+		registeredAddress: null,
+		icPassport:        null,
+		directorRole:      null,
+		ownershipPct:      null,
 		ssmDoc:            null,
 		icDoc:             null,
 	}
@@ -472,6 +501,70 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<u
 	return data
 }
 
+// Submits updated company fields and documents to the resubmission endpoint, authenticated by the resubmission token.
+async function submitResubmission(params: SubmitResubmissionParams): Promise<unknown>
+{
+	const form = new FormData()
+
+	if (params.resubmissionToken !== null) form.append('token',              params.resubmissionToken)
+	if (params.companyName !== null)       form.append('name',               params.companyName)
+	if (params.entityType !== null)        form.append('entityType',         params.entityType)
+	if (params.registeredAddress !== null) form.append('registeredAddress',  params.registeredAddress)
+	if (params.icPassport !== null)        form.append('director.icPassport',params.icPassport)
+	if (params.directorRole !== null)      form.append('director.role',      params.directorRole)
+
+	if (params.ownershipPct !== null && params.ownershipPct.trim() !== '')
+	{
+		form.append('director.ownershipPct', params.ownershipPct.trim())
+	}
+
+	if (params.ssmDoc !== null)
+	{
+		if (params.ssmDoc.webFile !== null)
+		{
+			form.append('ssmDoc', params.ssmDoc.webFile, params.ssmDoc.webFile.name)
+		}
+		else if (params.ssmDoc.uri !== null)
+		{
+			form.append('ssmDoc', {
+				uri:  params.ssmDoc.uri,
+				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
+				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	if (params.icDoc !== null)
+	{
+		if (params.icDoc.webFile !== null)
+		{
+			form.append('icDoc', params.icDoc.webFile, params.icDoc.webFile.name)
+		}
+		else if (params.icDoc.uri !== null)
+		{
+			form.append('icDoc', {
+				uri:  params.icDoc.uri,
+				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
+				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
+			} as unknown as Blob)
+		}
+	}
+
+	const response = await fetch(`${API_BASE}/resubmit`, {
+		method: 'POST',
+		body:   form,
+	})
+
+	const data: unknown = (await response.json()) as unknown
+
+	if (!response.ok)
+	{
+		throw new Error(resolveApiErrorMessage(data))
+	}
+
+	return data
+}
+
 // Renders a labeled section header with a colored icon badge.
 function SectionHeader(props: SectionHeaderProps)
 {
@@ -616,26 +709,39 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 
 						return (
 							<TouchableOpacity
-								key={opt.value !== null ? opt.value : ''}
-								className={`flex-1 flex-row items-center justify-center py-2.5 rounded-full ${
-									active ? 'bg-white shadow-sm' : 'bg-transparent'
-								}`}
-								onPress={handleOptionPress}
-								accessibilityRole="radio"
-								accessibilityState={{ selected: active }}
-								accessibilityLabel={opt.label !== null ? opt.label : ''}
+							key={String(opt.value)}
+							onPress={handleOptionPress}
+							style={{
+								flex: 1,
+								flexDirection: 'row',
+								alignItems: 'center',
+								justifyContent: 'center',
+								paddingVertical: 10,
+								borderRadius: 999,
+								backgroundColor: active ? '#FFFFFF' : 'transparent',
+							}}
+							accessibilityRole="radio"
+							accessibilityState={{ selected: active }}
+							accessibilityLabel={opt.label !== null ? opt.label : ''}
 							>
-								{opt.icon !== null && (
-									<MaterialCommunityIcons
-										name={opt.icon}
-										size={16}
-										color={active ? '#374151' : '#9CA3AF'}
-										style={{ marginRight: 5 }}
-									/>
-								)}
-								<Text className={`text-sm font-medium ${active ? 'text-gray-800' : 'text-gray-400'}`}>
-									{opt.label !== null ? opt.label : ''}
-								</Text>
+							{opt.icon !== null && (
+								<MaterialCommunityIcons
+								name={opt.icon}
+								size={16}
+								color={active ? '#374151' : '#9CA3AF'}
+								style={{ marginRight: 5 }}
+								/>
+							)}
+
+							<Text
+								style={{
+								fontSize: 14,
+								fontWeight: '500',
+								color: active ? '#374151' : '#9CA3AF',
+								}}
+							>
+								{opt.label !== null ? opt.label : ''}
+							</Text>
 							</TouchableOpacity>
 						)
 					}
@@ -747,6 +853,24 @@ function Toast(props: ToastProps)
 	)
 }
 
+// Extracts existing document metadata from a verify response and returns a populated UploadedFile, or null if absent.
+function resolveDocumentFromResponse(data: Record<string, unknown>, key: string): UploadedFile | null
+{
+	const raw = data[key]
+	if (raw === null || typeof raw !== 'object') return null
+	const record   = raw as Record<string, unknown>
+	const name     = typeof record['name']     === 'string' ? record['name']     : null
+	const mimeType = typeof record['mimeType'] === 'string' ? record['mimeType'] : null
+	const bytes    = typeof record['bytes']    === 'number' ? record['bytes']    : null
+	if (name === null) return null
+	const file    = createUploadedFile()
+	file.name     = name
+	file.mimeType = mimeType
+	file.bytes    = bytes
+	file.size     = bytes !== null ? formatBytes(bytes) : null
+	return file
+}
+
 // Renders the full business registration screen with company, director, and document upload sections.
 export default function RegisterBusinessScreen()
 {
@@ -768,6 +892,100 @@ export default function RegisterBusinessScreen()
 	const [toastVisible,    setToastVisible]    = useState<boolean>(false)
 	const [errors,  setErrors]  = useState<FormErrors>(createFormErrors())
 	const [touched, setTouched] = useState<TouchedFields>(createTouchedFields())
+	const [resubmissionToken, setResubmissionToken] = useState<string | null>(null)
+	const isMountedRef   = useRef<boolean>(true)
+	const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const [isVerifyingToken,  setIsVerifyingToken]  = useState<boolean>(false)
+	const [tokenError,        setTokenError]        = useState<string | null>(null)
+
+	const searchParams = useLocalSearchParams()
+	const queryToken   = typeof searchParams['token'] === 'string' ? searchParams['token'] : ''
+
+	useEffect
+	(
+		() =>
+		{
+			const rawToken = typeof queryToken === 'string' ? queryToken.trim() : ''
+			if (rawToken === '') return
+
+			setIsVerifyingToken(true)
+
+			fetch(`${API_BASE}/resubmit/verify?token=${encodeURIComponent(rawToken)}`)
+				.then(async (res) =>
+				{
+					const data = (await res.json()) as Record<string, unknown>
+					if (!res.ok)
+					{
+						const msg = typeof data['error'] === 'string' ? data['error'] : 'Invalid resubmission link.'
+						setTokenError(msg)
+						return
+					}
+
+					const email         = typeof data['email']             === 'string' ? data['email']             : ''
+					const ssm           = typeof data['ssmNumber']         === 'string' ? data['ssmNumber']         : ''
+					const name          = typeof data['name']              === 'string' ? data['name']              : ''
+					const address       = typeof data['registeredAddress'] === 'string' ? data['registeredAddress'] : ''
+					const ic            = typeof data['icPassport']        === 'string' ? data['icPassport']        : ''
+					const roleRaw       = typeof data['directorRole']      === 'string' ? data['directorRole']      : ''
+					const pctRaw        = typeof data['ownershipPct']      === 'number' ? String(data['ownershipPct']) : ''
+					const entityTypeRaw = typeof data['entityType']        === 'string' ? data['entityType']        : ''
+					const ssmDocData    = resolveDocumentFromResponse(data, 'ssmDoc')
+					const icDocData     = resolveDocumentFromResponse(data, 'icDoc')
+
+					setResubmissionToken(rawToken)
+					setRegisteredEmail(email)
+					setSsmNumber(ssm)
+					setCompanyName(name)
+					setRegisteredAddress(address)
+					setIcPassport(ic)
+					setOwnershipPct(pctRaw)
+
+					if (entityTypeRaw === 'sdn_bhd' || entityTypeRaw === 'sole_proprietor')
+					{
+						setEntityType(entityTypeRaw)
+					}
+
+					if (roleRaw === 'director' || roleRaw === 'owner')
+					{
+						setDirectorRole(roleRaw)
+					}
+
+					if (ssmDocData !== null) setSsmDoc(ssmDocData)
+					if (icDocData  !== null) setIcDoc(icDocData)
+
+					setTouched((prev) => ({
+						...prev,
+						registeredEmail:   true,
+						ssmNumber:         true,
+						companyName:       name    !== '' ? true : prev.companyName,
+						registeredAddress: address !== '' ? true : prev.registeredAddress,
+						icPassport:        ic      !== '' ? true : prev.icPassport,
+						directorRole:      roleRaw !== '' ? true : prev.directorRole,
+						ownershipPct:      pctRaw  !== '' ? true : prev.ownershipPct,
+						entityType:        entityTypeRaw !== '' ? true : prev.entityType,
+						ssmDoc:            ssmDocData !== null ? true : prev.ssmDoc,
+						icDoc:             icDocData  !== null ? true : prev.icDoc,
+					}))
+				})
+				.catch(() => setTokenError('Could not verify your resubmission link. Please try again.'))
+				.finally(() => setIsVerifyingToken(false))
+		},
+		[]
+	)
+
+	// Marks the component as unmounted and cancels any pending submit navigation timer.
+	useEffect
+	(
+		() => () =>
+		{
+			isMountedRef.current = false
+			if (submitTimerRef.current !== null)
+			{
+				clearTimeout(submitTimerRef.current)
+			}
+		},
+		[],
+	)
 
 	// Recomputes every field error from the latest form values.
 	function revalidateAll(
@@ -940,35 +1158,67 @@ export default function RegisterBusinessScreen()
 
 		try
 		{
-			const globalRecord = global as Record<string, unknown>
-			const globalToken  = globalRecord['__accessToken']
-			const accessToken  = typeof globalToken === 'string'
-				? globalToken
-				: 'REPLACE_WITH_REAL_TOKEN'
-
-			const params = createSubmitRegistrationParams()
-			params.accessToken       = accessToken
-			params.companyName       = companyName
-			params.ssmNumber         = ssmNumber
-			params.entityType        = entityType
-			params.registeredAddress = registeredAddress
-			params.icPassport        = icPassport
-			params.directorRole      = directorRole
-			params.ownershipPct      = ownershipPct
-			params.submittedBy       = registeredEmail
-			params.ssmDoc            = ssmDoc !== null ? ssmDoc : createUploadedFile()
-			params.icDoc             = icDoc  !== null ? icDoc  : createUploadedFile()
-
-			await initiateRegistration(params)
-
-			setEmailSentBanner(true)
-			setToastVisible(true)
-
-			setTimeout(() =>
+			if (resubmissionToken !== null)
 			{
-				setToastVisible(false)
-				router.replace('/login' as never)
-			}, 2400)
+				// ── Resubmission path ──────────────────────────────────
+				const params = createSubmitResubmissionParams()
+				params.resubmissionToken = resubmissionToken
+				params.companyName       = companyName
+				params.entityType        = entityType
+				params.registeredAddress = registeredAddress
+				params.icPassport        = icPassport
+				params.directorRole      = directorRole
+				params.ownershipPct      = ownershipPct
+				params.ssmDoc            = ssmDoc !== null ? ssmDoc : createUploadedFile()
+				params.icDoc             = icDoc  !== null ? icDoc  : createUploadedFile()
+
+				await submitResubmission(params)
+
+				setToastVisible(true)
+
+				submitTimerRef.current = setTimeout(
+					() =>
+					{
+						if (!isMountedRef.current) return
+						setToastVisible(false)
+						router.replace('/login' as never)
+					},
+					2400,
+				)
+			}
+			else
+			{
+				// ── Original registration path ─────────────────────────
+				const globalRecord = global as Record<string, unknown>
+				const globalToken  = globalRecord['__accessToken']
+				const accessToken  = typeof globalToken === 'string'
+					? globalToken
+					: 'REPLACE_WITH_REAL_TOKEN'
+
+				const params = createSubmitRegistrationParams()
+				params.accessToken       = accessToken
+				params.companyName       = companyName
+				params.ssmNumber         = ssmNumber
+				params.entityType        = entityType
+				params.registeredAddress = registeredAddress
+				params.icPassport        = icPassport
+				params.directorRole      = directorRole
+				params.ownershipPct      = ownershipPct
+				params.submittedBy       = registeredEmail
+				params.ssmDoc            = ssmDoc !== null ? ssmDoc : createUploadedFile()
+				params.icDoc             = icDoc  !== null ? icDoc  : createUploadedFile()
+
+				await initiateRegistration(params)
+
+				setEmailSentBanner(true)
+				setToastVisible(true)
+
+				setTimeout(() =>
+				{
+					setToastVisible(false)
+					router.replace('/login' as never)
+				}, 2400)
+			}
 		}
 		catch (e)
 		{
@@ -983,12 +1233,20 @@ export default function RegisterBusinessScreen()
 	const webSubmitStyle: Record<string, string> | null =
 		Platform.OS === 'web' ? { cursor: 'pointer' } : null
 
-	const isFormValid = !hasErrors(
-		revalidateAll(
+	const isFormValid = useMemo
+	(
+		() => !hasErrors(
+			revalidateAll(
+				companyName, ssmNumber, entityType, registeredAddress,
+				registeredEmail, icPassport, directorRole,
+				ownershipPct, ssmDoc, icDoc,
+			)
+		),
+		[
 			companyName, ssmNumber, entityType, registeredAddress,
 			registeredEmail, icPassport, directorRole,
 			ownershipPct, ssmDoc, icDoc,
-		)
+		],
 	)
 
 	return (
@@ -1017,10 +1275,34 @@ export default function RegisterBusinessScreen()
 							</View>
 
 							<Text className="text-white text-4xl font-bold mb-2">Register Business</Text>
-							<Text className="text-blue-200 text-sm">Complete the form to register your entity</Text>
+							<Text className="text-blue-200 text-sm">
+							{resubmissionToken !== null
+								? 'Update your details and resubmit for review'
+								: 'Complete the form to register your entity'
+							}
+							</Text>
 						</View>
 
 						<View className="flex-1 px-6 pt-8 pb-8">
+
+							{isVerifyingToken && (
+								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-center">
+									<ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 10 }} />
+									<Text className="text-blue-700 text-sm">Verifying your resubmission link…</Text>
+								</View>
+							)}
+
+							{tokenError !== null && (
+								<View className="mb-5 px-4 py-4 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
+									<MaterialCommunityIcons
+										name="alert-circle-outline"
+										size={18}
+										color="#DC2626"
+										style={{ marginRight: 8, marginTop: 1 }}
+									/>
+									<Text className="text-red-600 text-sm flex-1">{tokenError}</Text>
+								</View>
+							)}
 
 							<SectionHeader
 								icon="office-building-outline"
@@ -1092,18 +1374,18 @@ export default function RegisterBusinessScreen()
 
 							<View className="mb-5">
 								<FieldLabel label="Registered Email" optional={null} />
-								<TextFieldInput
-									icon="email-outline"
-									placeholder="Enter your registered email address"
-									value={registeredEmail}
-									onChangeText={handleRegisteredEmailChange}
-									onBlur={() => handleBlur('registeredEmail')}
-									keyboardType="email-address"
-									autoCapitalize="none"
-									multiline={null}
-									numberOfLines={null}
-									error={visibleError('registeredEmail')}
-								/>
+									<TextFieldInput
+										icon="email-outline"
+										placeholder="Enter your registered email address"
+										value={registeredEmail}
+										onChangeText={resubmissionToken !== null ? null : handleRegisteredEmailChange}
+										onBlur={() => handleBlur('registeredEmail')}
+										keyboardType="email-address"
+										autoCapitalize="none"
+										multiline={null}
+										numberOfLines={null}
+										error={visibleError('registeredEmail')}
+									/>
 							</View>
 
 							<View className="h-px bg-gray-200 my-6" />
@@ -1240,7 +1522,7 @@ export default function RegisterBusinessScreen()
 										<Text className={`text-base font-semibold tracking-wide ${
 											isFormValid ? 'text-white' : 'text-gray-400'
 										}`}>
-											Submit Registration
+											{resubmissionToken !== null ? 'Resubmit Registration' : 'Submit Registration'}
 										</Text>
 									)}
 								</TouchableOpacity>
@@ -1260,7 +1542,11 @@ export default function RegisterBusinessScreen()
 
 			<Toast
 				visible={toastVisible}
-				message="Registration submitted! Redirecting…"
+				message={
+					resubmissionToken !== null
+						? 'Resubmission received! Redirecting…'
+						: 'Registration submitted! Redirecting…'
+				}
 			/>
 		</View>
 	)

@@ -7,6 +7,7 @@ import adminRoutes from './routes/admin_route'
 import authRoutes from './routes/auth_route'
 import companyRoutes from './routes/company_route'
 import onboardingRoutes from './routes/onboarding_route'
+import resubmitRoutes from './routes/resubmit_route'
 
 dotenv.config()
 
@@ -19,6 +20,8 @@ app.use('/auth', authRoutes)
 app.use('/companies', companyRoutes)
 app.use('/admin/review', adminRoutes)   
 app.use('/onboarding', onboardingRoutes)
+app.use('/resubmit', resubmitRoutes)
+
 
 app.get('/', (request, response) =>
 {

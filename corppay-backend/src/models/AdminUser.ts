@@ -20,7 +20,4 @@ const AdminUserSchema = new Schema<IAdminUser>(
 	{ timestamps: true }
 )
 
-AdminUserSchema.index({ email: 1 })
-AdminUserSchema.index({ ssmNumber: 1 })
-
 export default mongoose.model<IAdminUser>('AdminUser', AdminUserSchema)

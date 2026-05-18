@@ -51,3 +51,4 @@ updateEnvFile(frontendEnvPath, "EXPO_PUBLIC_API_URL", `http://${ip}:5000`)
 // Backend .env
 const backendEnvPath = path.join(__dirname, "../corppay-backend/.env")
 updateEnvFile(backendEnvPath, "API_BASE_URL", `http://${ip}:5000`)
+updateEnvFile(backendEnvPath, "FRONTEND_URL", `http://${ip}:8081`)
