@@ -146,13 +146,14 @@ type UploadBoxProps =
 {
 	file:    UploadedFile | null
 	onPress: (() => void) | null
+	onRemove: (() => void) | null
 	error:   string | null
 }
 
 // Creates a fully initialized UploadBoxProps with all fields set to null.
 function createUploadBoxProps(): UploadBoxProps
 {
-	return { file: null, onPress: null, error: null }
+	return { file: null, onPress: null, onRemove: null, error: null }
 }
 
 type SubmitRegistrationParams =
@@ -752,14 +753,12 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 	)
 }
 
-// Renders a file upload drop zone that displays file details once a file has been selected.
 function UploadBox(props: UploadBoxProps)
 {
 	const webCursorStyle: Record<string, string> | null =
 		Platform.OS === 'web' ? { cursor: 'pointer' } : null
 	const hasError = props.error !== null
 
-	// A no-op press handler used when no handler is provided.
 	const noopPressHandler = () => {}
 
 	return (
@@ -803,6 +802,26 @@ function UploadBox(props: UploadBoxProps)
 					</>
 				)}
 			</TouchableOpacity>
+
+			{/* ── Remove button, shown only when a file is present ── */}
+			{props.file !== null && props.onRemove !== null && (
+				<TouchableOpacity
+					onPress={props.onRemove}
+					className="flex-row items-center justify-center mt-2 py-1"
+					accessibilityRole="button"
+					accessibilityLabel="Remove uploaded file"
+					style={Platform.OS === 'web' ? { cursor: 'pointer' } : undefined}
+				>
+					<MaterialCommunityIcons
+						name="close-circle-outline"
+						size={14}
+						color="#6B7280"
+						style={{ marginRight: 4 }}
+					/>
+					<Text className="text-gray-500 text-xs">Remove file</Text>
+				</TouchableOpacity>
+			)}
+
 			<FieldError message={props.error} />
 		</View>
 	)
@@ -1181,7 +1200,14 @@ export default function RegisterBusinessScreen()
 					{
 						if (!isMountedRef.current) return
 						setToastVisible(false)
-						router.replace('/login' as never)
+						if (Platform.OS === 'web')
+						{
+							window.close()
+						}
+						else
+						{
+							router.replace('/login' as never)
+						}
 					},
 					2400,
 				)
@@ -1456,6 +1482,10 @@ export default function RegisterBusinessScreen()
 								<UploadBox
 									file={ssmDoc}
 									onPress={handlePickSsmDoc}
+									onRemove={() => {
+										setSsmDoc(null)
+										setErrors((prev) => ({ ...prev, ssmDoc: validateUploadedFile(null, 'Certificate of Incorporation') }))
+									}}
 									error={visibleError('ssmDoc')}
 								/>
 							</View>
@@ -1465,6 +1495,10 @@ export default function RegisterBusinessScreen()
 								<UploadBox
 									file={icDoc}
 									onPress={handlePickIcDoc}
+									onRemove={() => {
+										setIcDoc(null)
+										setErrors((prev) => ({ ...prev, icDoc: validateUploadedFile(null, 'Director IC / Passport Copy') }))
+									}}
 									error={visibleError('icDoc')}
 								/>
 							</View>
@@ -1544,7 +1578,7 @@ export default function RegisterBusinessScreen()
 				visible={toastVisible}
 				message={
 					resubmissionToken !== null
-						? 'Resubmission received! Redirecting…'
+						? 'Resubmission received! You may now close the browser.'
 						: 'Registration submitted! Redirecting…'
 				}
 			/>

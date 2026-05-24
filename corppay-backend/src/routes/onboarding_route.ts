@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express'
+import { validateAdminPassword } from '../../../corppay-backend/src/validation/adminSetPasswordValidation'
 import { completeOnboarding, verifyOnboardingToken } from '../services/admin_onboarding_service'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,34 +64,37 @@ router.get('/verify-token', async (req: Request, res: Response) =>
 // Validates the onboarding token and password, creates the admin user, and consumes the token.
 router.post('/set-password', async (req: Request, res: Response) =>
 {
-	const body  = req.body as Record<string, unknown>
-	const input = extractSetPasswordBody(body)
+	const body     = req.body as Record<string, unknown>
+	const token    = typeof body['token']    === 'string' ? body['token'].trim()    : ''
+	const password = typeof body['password'] === 'string' ? body['password']        : ''
 
-	if (input.token === '')
+	if (token === '')
 	{
 		return res.status(400).json({ error: 'Token is required.' })
 	}
 
-	if (input.password.length < 8)
+	const passwordError = validateAdminPassword(password)
+	if (passwordError !== null)
 	{
-		return res.status(400).json({ error: 'Password must be at least 8 characters.' })
+		return res.status(400).json({ error: passwordError })
 	}
+	// ────────────────────────────────────────────────────────────────────────
 
 	try
 	{
-		const result = await completeOnboarding(input.token, input.password)
+		const result = await completeOnboarding(token, password)
 
 		if (!result.success)
 		{
 			return res.status(400).json({ error: result.reason })
 		}
 
-		return res.status(201).json({ message: 'Account setup complete. You can now sign in.' })
+		return res.status(200).json({ message: 'Password set successfully.' })
 	}
-	catch (err)
+	catch (e: unknown)
 	{
-		console.error('[onboarding_routes] set-password error:', err)
-		return res.status(500).json({ error: 'Account setup failed. Please try again.' })
+		console.error('[onboarding_routes] set-password error:', e)
+		return res.status(500).json({ error: 'An unexpected error occurred.' })
 	}
 })
 

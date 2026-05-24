@@ -1,185 +1,236 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as SecureStore from 'expo-secure-store'
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Platform, View } from 'react-native'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000'
+const API_BASE = process.env.EXPO_PUBLIC_API_URL as string
 
-type User =
+const ACCESS_TOKEN_KEY  = 'corppay_access_token'
+const REFRESH_TOKEN_KEY = 'corppay_refresh_token'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type UserRole = 'user' | 'admin'
+
+export type AuthUser =
 {
-    id: string
-    email: string
-    role: 'user' | 'admin'
-    isActive: boolean
-    lastLoginAt: string | null
+	id:          string
+	email:       string
+	role:        string
+	isActive:    boolean
+	lastLoginAt: string
 }
 
-type AuthContextType =
+type AuthContextValue =
 {
-    user: User | null
-    isLoading: boolean
-    login: (email: string, password: string, role: 'user' | 'admin') => Promise<void>
-    logout: () => Promise<void>
-    getAccessToken: () => Promise<string | null>
+	user:        AuthUser | null
+	accessToken: string
+	isLoading:   boolean
+	login:       (email: string, password: string, role: UserRole) => Promise<void>
+	logout:      () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
+// ─── Factories ────────────────────────────────────────────────────────────────
 
-async function getRefreshToken()
+// Creates a fully initialized AuthUser with empty/zero defaults.
+function createAuthUser(): AuthUser
 {
-    if (Platform.OS === 'web')
-    {
-        return await AsyncStorage.getItem('refreshToken')
-    }
-    return await SecureStore.getItemAsync('refreshToken')
+	return {
+		id:          '',
+		email:       '',
+		role:        '',
+		isActive:    false,
+		lastLoginAt: new Date(0).toISOString(),
+	}
 }
 
-async function setRefreshToken(token: string)
+// ─── Context ──────────────────────────────────────────────────────────────────
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Extracts a validated AuthUser from a raw API response object, returning null when required fields are absent.
+function extractAuthUser(raw: Record<string, unknown>): AuthUser | null
 {
-    if (Platform.OS === 'web')
-    {
-        return await AsyncStorage.setItem('refreshToken', token)
-    }
-    return await SecureStore.setItemAsync('refreshToken', token)
+	const id          = typeof raw['id']          === 'string'  ? raw['id']          : ''
+	const email       = typeof raw['email']       === 'string'  ? raw['email']       : ''
+	const role        = typeof raw['role']        === 'string'  ? raw['role']        : ''
+	const isActive    = typeof raw['isActive']    === 'boolean' ? raw['isActive']    : false
+	const lastLoginAt = typeof raw['lastLoginAt'] === 'string'  ? raw['lastLoginAt'] : new Date(0).toISOString()
+
+	if (id === '' || email === '' || role === '') return null
+
+	const user          = createAuthUser()
+	user.id             = id
+	user.email          = email
+	user.role           = role
+	user.isActive       = isActive
+	user.lastLoginAt    = lastLoginAt
+	return user
 }
 
-async function deleteRefreshToken()
+// Safely resolves a user object from an unknown API response value.
+function resolveRawUser(value: unknown): Record<string, unknown>
 {
-    if (Platform.OS === 'web')
-    {
-        return await AsyncStorage.removeItem('refreshToken')
-    }
-    return await SecureStore.deleteItemAsync('refreshToken')
+	if (value !== null && typeof value === 'object') return value as Record<string, unknown>
+	return {}
 }
 
+// ─── Session Restore ──────────────────────────────────────────────────────────
+
+type RestoredSession =
+{
+	user:        AuthUser | null
+	accessToken: string
+}
+
+// Creates a fully initialized RestoredSession with null user and empty token.
+function createRestoredSession(): RestoredSession
+{
+	return { user: null, accessToken: '' }
+}
+
+// Reads the stored refresh token and exchanges it for a new access token, returning null session on failure.
+async function tryRestoreSession(): Promise<RestoredSession>
+{
+	const result  = createRestoredSession()
+	const stored  = await AsyncStorage.multiGet([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
+	const refresh = stored[1][1] !== null ? stored[1][1] : ''
+
+	if (refresh === '') return result
+
+	const response = await fetch(`${API_BASE}/auth/refresh`, {
+		method:  'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body:    JSON.stringify({ refreshToken: refresh }),
+	})
+
+	if (!response.ok)
+	{
+		await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
+		return result
+	}
+
+	const data            = await response.json() as Record<string, unknown>
+	const newAccessToken  = typeof data['accessToken']  === 'string' ? data['accessToken']  : ''
+	const newRefreshToken = typeof data['refreshToken'] === 'string' ? data['refreshToken'] : ''
+	const user            = extractAuthUser(resolveRawUser(data['user']))
+
+	if (user === null || newAccessToken === '' || newRefreshToken === '') return result
+
+	await AsyncStorage.multiSet([
+		[ACCESS_TOKEN_KEY,  newAccessToken],
+		[REFRESH_TOKEN_KEY, newRefreshToken],
+	])
+
+	result.user        = user
+	result.accessToken = newAccessToken
+	return result
+}
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+// Provides authentication state and login/logout actions to the component tree, restoring any persisted session on mount.
 export function AuthProvider({ children }: { children: React.ReactNode })
 {
-    const [user, setUser] = useState<User | null>(null)
-    const [isLoading, setLoading] = useState(true)
-    const accessTokenRef = useRef<string | null>(null)
+	const [user, setUser]               = useState<AuthUser | null>(null)
+	const [accessToken, setAccessToken] = useState<string>('')
+	const [isLoading, setIsLoading]     = useState<boolean>(true)
 
-    useEffect(() =>
-    {
-        (async () =>
-        {
-            await silentRefresh()
-            setLoading(false)
-        })()
-    }, [])
+	useEffect(() =>
+	{
+		async function restoreOnMount(): Promise<void>
+		{
+			try
+			{
+				const session = await tryRestoreSession()
+				setUser(session.user)
+				setAccessToken(session.accessToken)
+			}
+			catch
+			{
+				setUser(null)
+				setAccessToken('')
+			}
+			finally
+			{
+				setIsLoading(false)
+			}
+		}
 
-    async function silentRefresh()
-    {
-        try
-        {
-            const refreshToken = await getRefreshToken()
+		restoreOnMount()
+	}, [])
 
-            if (!refreshToken)
-            {
-                setUser(null)
-                return
-            }
+	// Authenticates the user against the API and persists tokens on success.
+	async function login(email: string, password: string, role: UserRole): Promise<void>
+	{
+		const response = await fetch(`${API_BASE}/auth/login`, {
+			method:  'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body:    JSON.stringify({ email, password, role }),
+		})
 
-            const res = await fetch(`${API_BASE}/auth/refresh`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken }),
-            })
+		const data = await response.json() as Record<string, unknown>
 
-            if (!res.ok)
-            {
-                setUser(null)
-                return
-            }
+		if (!response.ok)
+		{
+			const message = typeof data['error'] === 'string' ? data['error'] : 'Login failed.'
+			throw new Error(message)
+		}
 
-            const { accessToken, refreshToken: newRefreshToken, user } = await res.json()
+		const newAccessToken  = typeof data['accessToken']  === 'string' ? data['accessToken']  : ''
+		const newRefreshToken = typeof data['refreshToken'] === 'string' ? data['refreshToken'] : ''
+		const loggedInUser    = extractAuthUser(resolveRawUser(data['user']))
 
-            accessTokenRef.current = accessToken
-            setUser(user)
+		if (loggedInUser === null || newAccessToken === '' || newRefreshToken === '')
+		{
+			throw new Error('Received an invalid response from the server.')
+		}
 
-            await setRefreshToken(newRefreshToken)
-        }
-        catch
-        {
-            setUser(null)
-        }
-    }
+		await AsyncStorage.multiSet([
+			[ACCESS_TOKEN_KEY,  newAccessToken],
+			[REFRESH_TOKEN_KEY, newRefreshToken],
+		])
 
-    async function login(email: string, password: string, role: 'user' | 'admin')
-    {
-        const res = await fetch(`${API_BASE}/auth/login`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, role }),
-        })
+		setAccessToken(newAccessToken)
+		setUser(loggedInUser)
+	}
 
-        if (!res.ok)
-        {
-            const body = await res.json()
-            throw new Error(body?.error ?? 'Login failed')
-        }
+	// Clears persisted tokens and resets authentication state, attempting a server-side logout if tokens exist.
+	async function logout(): Promise<void>
+	{
+		const stored       = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+		const refreshToken = stored !== null ? stored : ''
 
-        const { accessToken, refreshToken, user } = await res.json()
+		if (refreshToken !== '' && accessToken !== '')
+		{
+			fetch(`${API_BASE}/auth/logout`, {
+				method:  'POST',
+				headers: {
+					'Content-Type':  'application/json',
+					'Authorization': `Bearer ${accessToken}`,
+				},
+				body: JSON.stringify({ refreshToken }),
+			}).catch((_err: unknown) => { /* server logout is best-effort */ })
+		}
 
-        accessTokenRef.current = accessToken
-        setUser(user)
+		await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
+		setUser(null)
+		setAccessToken('')
+	}
 
-        await setRefreshToken(refreshToken)
-    }
+	const value: AuthContextValue = { user, accessToken, isLoading, login, logout }
 
-    async function logout()
-    {
-        try
-        {
-            const refreshToken = await getRefreshToken()
-
-            if (refreshToken && accessTokenRef.current)
-            {
-                await fetch(`${API_BASE}/auth/logout`,
-                {
-                    method: 'POST',
-                    headers:
-                    {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${accessTokenRef.current}`,
-                    },
-                    body: JSON.stringify({ refreshToken }),
-                })
-            }
-        }
-        finally
-        {
-            accessTokenRef.current = null
-            setUser(null)
-            await deleteRefreshToken()
-        }
-    }
-
-    const getAccessToken = useCallback(async () =>
-    {
-        return accessTokenRef.current
-    }, [])
-
-    if (isLoading)
-    {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#2B4EFF" />
-            </View>
-        )
-    }
-
-    return (
-        <AuthContext.Provider value={{ user, isLoading, login, logout, getAccessToken }}>
-            {children}
-        </AuthContext.Provider>
-    )
+	return (
+		<AuthContext.Provider value={value}>
+			{children}
+		</AuthContext.Provider>
+	)
 }
 
-export function useAuth()
+// Returns the authentication context value, throwing if called outside of an AuthProvider.
+export function useAuth(): AuthContextValue
 {
-    const ctx = useContext(AuthContext)
-    if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
-    return ctx
+	const context = useContext(AuthContext)
+	if (context === null) throw new Error('useAuth must be used within an AuthProvider.')
+	return context
 }

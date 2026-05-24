@@ -1,132 +1,141 @@
 import { Request, Response, Router } from 'express'
 import rateLimit from 'express-rate-limit'
-import { body, validationResult } from 'express-validator'
-
 import { authenticate } from '../middleware/auth_middleware'
 import { loginUser, logoutUser, refreshAccessToken } from '../services/auth_service'
+import { validateLoginFields } from '../validation/loginValidation'
 
 const router = Router()
 
-const loginLimiter = rateLimit
-({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many login attempts. Try again in 15 minutes.' },
-    standardHeaders: true,
-    legacyHeaders: false,
+const loginLimiter = rateLimit({
+	windowMs:        15 * 60 * 1000,
+	max:             10,
+	message:         { error: 'Too many login attempts. Try again in 15 minutes.' },
+	standardHeaders: true,
+	legacyHeaders:   false,
 })
 
-router.post('/login',loginLimiter,
-[
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty(),
-    body('role').isIn(['user', 'admin']),
-],
-async (request: Request, response: Response) =>
+// Resolves a string or string-array header value to a plain string, returning empty on absence.
+function resolveStringHeader(value: string | string[] | undefined): string
 {
-    const errors = validationResult(request)
+	if (value === undefined)         return ''
+	if (Array.isArray(value))        return value.length > 0 ? value[0] : ''
+	return value
+}
 
-    if (!errors.isEmpty())
-    {
-        return response.status(400).json({ errors: errors.array() })
-    }
+// Extracts the refresh token from the request body or x-refresh-token header.
+function extractRefreshToken(body: Record<string, unknown>, headers: Record<string, unknown>): string
+{
+	const fromBody   = typeof body['refreshToken']              === 'string' ? body['refreshToken'] : ''
+	const headerRaw  = headers['x-refresh-token']
+	const fromHeader = typeof headerRaw === 'string' ? headerRaw : ''
+	return fromBody !== '' ? fromBody : fromHeader
+}
 
-    try
-    {
-        const { accessToken, refreshToken, user } = await loginUser(
-            request.body.email,
-            request.body.password,
-            request.body.role
-        )
+// Validates credentials and role, issues tokens, and returns the safe user payload.
+router.post(
+	'/login',
+	loginLimiter,
+	async (request: Request, response: Response) =>
+	{
+		const rawBody  = request.body  as Record<string, unknown>
+		const email    = typeof rawBody['email']    === 'string' ? rawBody['email']    : ''
+		const password = typeof rawBody['password'] === 'string' ? rawBody['password'] : ''
+		const roleRaw  = typeof rawBody['role']     === 'string' ? rawBody['role']     : ''
 
-        const safeUser = 
-        {
-            id: user._id,
-            email: user.email,
-            role: user.role,
-            isActive: user.isActive,
-            lastLoginAt: user.lastLoginAt
-        }
+		const validationError = validateLoginFields(email, password, roleRaw)
+		if (validationError !== null)
+		{
+			return response.status(400).json({ error: validationError })
+		}
 
-        return response.json
-        ({
-            accessToken,
-            refreshToken,
-            user: safeUser
-        })
-    }
-    catch (error)
-    {
-        console.error(error)
-        return response.status(401).json
-        ({
-            error: (error as Error).message || 'Invalid credentials'
-        })
-    }
-})
+		if (roleRaw !== 'user' && roleRaw !== 'admin')
+		{
+			return response.status(400).json({ error: 'Invalid role.' })
+		}
 
+		try
+		{
+			const result = await loginUser(email, password, roleRaw)
 
+			return response.json({
+				accessToken:  result.accessToken,
+				refreshToken: result.refreshToken,
+				user:         result.user,
+			})
+		}
+		catch (error)
+		{
+			console.error('[auth_route] login error:', error)
+			return response.status(401).json({
+				error: error instanceof Error ? error.message : 'Invalid credentials',
+			})
+		}
+	}
+)
+
+// Rotates the refresh token and returns a new access token and user payload.
 router.post('/refresh', async (request: Request, response: Response) =>
 {
-    const token = request.body?.refreshToken || request.headers['x-refresh-token']
+	const rawBody = request.body    as Record<string, unknown>
+	const headers = request.headers as Record<string, unknown>
+	const token   = extractRefreshToken(rawBody, headers)
 
-    if (!token)
-    {
-        return response.status(400).json({ error: 'Refresh token required' })
-    }
+	if (token === '')
+	{
+		return response.status(400).json({ error: 'Refresh token required' })
+	}
 
-    try
-    {
-        const { accessToken, refreshToken, user } = await refreshAccessToken(token)
+	try
+	{
+		const result = await refreshAccessToken(token)
 
-        return response.json({
-            accessToken,
-            refreshToken,
-            user,           // ← add this
-            expiresIn: 900
-        })
-    }
-    catch (error)
-    {
-        console.error(error)
-        return response.status(401).json({ error: 'Invalid or expired refresh token' })
-    }
+		return response.json({
+			accessToken:  result.accessToken,
+			refreshToken: result.refreshToken,
+			user:         result.user,
+			expiresIn:    900,
+		})
+	}
+	catch (error)
+	{
+		console.error('[auth_route] refresh error:', error)
+		return response.status(401).json({ error: 'Invalid or expired refresh token' })
+	}
 })
 
-router.post('/logout',authenticate, async (request: Request, response: Response) =>
+// Invalidates the user's refresh token and logs them out.
+router.post('/logout', authenticate, async (request: Request, response: Response) =>
 {
-    const token = request.body?.refreshToken || request.headers['x-refresh-token']
+	const rawBody = request.body    as Record<string, unknown>
+	const headers = request.headers as Record<string, unknown>
+	const token   = extractRefreshToken(rawBody, headers)
 
-    if (!token)
-    {
-        return response.status(400).json
-        ({
-            error: 'Refresh token required'
-        })
-    }
+	if (token === '')
+	{
+		return response.status(400).json({ error: 'Refresh token required' })
+	}
 
-    const reqUser = request as Request & 
-    {
-        user?: { sub: string }
-    }
+	const reqUser = request.user
+	if (reqUser === null)
+	{
+		return response.status(401).json({ error: 'Unauthorized' })
+	}
 
-    try
-    {
-        await logoutUser(reqUser.user!.sub, token)
-
-        return response.json
-        ({
-            message: 'Logged out successfully'
-        })
-    }
-    catch (err)
-    {
-        console.error(err)
-        return response.status(500).json
-        ({
-            error: 'Logout failed'
-        })
-    }
+	try
+	{
+		const sub = typeof reqUser.sub === 'string' ? reqUser.sub : ''
+        if (sub === '')
+        {
+            return response.status(401).json({ error: 'Unauthorized' })
+        }
+        await logoutUser(sub, token)
+		return response.json({ message: 'Logged out successfully' })
+	}
+	catch (err)
+	{
+		console.error('[auth_route] logout error:', err)
+		return response.status(500).json({ error: 'Logout failed' })
+	}
 })
 
 export default router

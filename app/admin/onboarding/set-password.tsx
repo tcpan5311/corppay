@@ -11,6 +11,10 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native'
+import {
+	validateAdminPassword,
+	validatePasswordConfirmation,
+} from '../../../corppay-backend/src/validation/adminSetPasswordValidation'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
@@ -117,19 +121,18 @@ function resolveErrorMessage(e: unknown): string
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-// Returns an error string if the password is fewer than 8 characters, otherwise an empty string.
+// Delegates password validation to the shared rule set and returns an empty string on success.
 function validatePassword(value: string): string
 {
-	if (value.length < 8) return 'Password must be at least 8 characters.'
-	return ''
+	const error = validateAdminPassword(value)
+	return error !== null ? error : ''
 }
 
-// Returns an error string if the confirmation value does not match the password, otherwise an empty string.
+// Delegates confirmation validation to the shared rule set and returns an empty string on success.
 function validateConfirmPassword(password: string, confirm: string): string
 {
-	if (confirm === '')       return 'Please confirm your password.'
-	if (confirm !== password) return 'Passwords do not match.'
-	return ''
+	const error = validatePasswordConfirmation(password, confirm)
+	return error !== null ? error : ''
 }
 
 // ─── Token Extraction ─────────────────────────────────────────────────────────
@@ -219,7 +222,17 @@ export default function SetPasswordScreen()
 			setState((prev) => ({ ...prev, phase: 'success', isSubmitting: false }))
 
 			setTimeout(
-				() => { router.replace('/login' as never) },
+				() => 
+				{ 
+					if (Platform.OS === 'web')
+					{
+						window.close()
+					}
+					else
+					{
+						router.replace('/login' as never)
+					}
+				},
 				3000,
 			)
 		}
@@ -308,7 +321,7 @@ export default function SetPasswordScreen()
 						{state.phase === 'ready' && (
 							<>
 								<View className="items-center mb-8">
-									<View className="w-20 h-20 bg-emerald-600 rounded-3xl items-center justify-center shadow-lg mb-4">
+									<View className="w-20 h-20 bg-blue-600 rounded-3xl items-center justify-center shadow-lg mb-4">
 										<MaterialCommunityIcons name="lock-reset" size={40} color="#FFFFFF" />
 									</View>
 									<Text className="text-gray-900 text-2xl font-bold text-center">
@@ -433,7 +446,7 @@ export default function SetPasswordScreen()
 								<TouchableOpacity
 									className={`rounded-2xl py-4 items-center shadow-md ${
 										isFormReady
-											? 'bg-emerald-600 shadow-emerald-300'
+											? 'bg-blue-600 shadow-blue-300'
 											: 'bg-gray-300 shadow-gray-200'
 									}`}
 									onPress={handleSubmit}
@@ -469,9 +482,8 @@ export default function SetPasswordScreen()
 									Account Ready
 								</Text>
 								<Text className="text-gray-500 text-sm text-center leading-5">
-									Your password has been set. Redirecting you to sign in…
+									Your password has been set. You may now close the browser.
 								</Text>
-								<ActivityIndicator color="#059669" className="mt-5" />
 							</View>
 						)}
 

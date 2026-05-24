@@ -97,16 +97,20 @@ export function validateSsmNumber(value: string): string | null
 	return null
 }
 
+// Returns an error string if the entity type is null or not one of the accepted values, otherwise null.
 export function validateEntityType(value: string | null): string | null
 {
-	if (value === null) return 'Please select an entity type.'
+	if (value === null)                                     return 'Please select an entity type.'
+	if (!['sdn_bhd', 'sole_proprietor'].includes(value))   return 'Please select an entity type.'
 	return null
 }
 
+// Returns an error string if the director role is null or not one of the accepted values, otherwise null.
 export function validateDirectorRole(value: string | null): string | null
 {
-    if (value === null) return 'Please select a role.'
-    return null
+	if (value === null)                               return 'Please select a role.'
+	if (!['director', 'owner'].includes(value))       return 'Please select a role.'
+	return null
 }
 
 export function validateRegisteredAddress(value: string): string | null
@@ -159,7 +163,7 @@ export function validateOwnershipPct(value: string): string | null
 	return null
 }
 
-type UploadFileValidatable =
+export type UploadFileValidatable =
 {
 	bytes:    number | null
 	mimeType: string | null

@@ -1,131 +1,310 @@
 import crypto from 'crypto'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
+import AdminUser, { IAdminUser } from '../models/AdminUser'
 import User, { IUser } from '../models/User'
+
 dotenv.config()
 
-const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET!
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET! 
+const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  as string
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string
 
 const MAX_ATTEMPTS  = 5
-const LOCK_DURATION  = 15 * 60 * 1000 // 15 minutes
+const LOCK_DURATION = 15 * 60 * 1000
 
-export async function loginUser(email: string, password: string, role: 'user' | 'admin')
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type SafeLoginUser =
 {
-    const user = await User.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
-
-    const genericError = new Error('Invalid credentials')
-
-    if (!user || !user.isActive || user.role !== role)
-        throw genericError
-
-    if (user.lockedUntil && user.lockedUntil > new Date())
-    {
-        throw new Error('Account temporarily locked. Try again later.')
-    }
-
-    const valid = await user.comparePassword(password)
-
-    if (!valid)
-    {
-        user.loginAttempts += 1
-
-        if (user.loginAttempts >= MAX_ATTEMPTS)
-        {
-            user.lockedUntil = new Date(Date.now() + LOCK_DURATION)
-        }
-
-        await user.save()
-        throw genericError
-    }
-
-    user.loginAttempts = 0
-    user.lockedUntil   = null
-    user.lastLoginAt   = new Date()
-
-    const accessToken  = issueAccessToken(user)
-    const refreshToken = issueRefreshToken()
-
-    if (!user.refreshTokens)
-    {
-        user.refreshTokens = []
-    }
-
-    const tokenHash = hashToken(refreshToken)
-    user.refreshTokens.push(tokenHash)
-
-    if (user.refreshTokens.length > 5)
-    {
-        user.refreshTokens.shift()
-    }
-
-    await user.save()
-
-    return {
-        accessToken,
-        refreshToken,
-        user
-    }
+	id:          string
+	email:       string
+	role:        string
+	isActive:    boolean
+	lastLoginAt: Date
 }
 
-
-export async function refreshAccessToken(rawRefreshToken: string)
+export type LoginResult =
 {
-    const tokenHash = hashToken(rawRefreshToken)
-    const user = await User.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
-
-    if (!user) throw new Error('Refresh token reuse detected or invalid token')
-
-    user.refreshTokens = user.refreshTokens.filter(t => t !== tokenHash)
-
-    const newRefreshToken = issueRefreshToken()
-    user.refreshTokens.push(hashToken(newRefreshToken))
-
-    await user.save()
-
-    // Build the safe user object here
-    const safeUser = {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        lastLoginAt: user.lastLoginAt
-    }
-
-    return {
-        accessToken: issueAccessToken(user),
-        refreshToken: newRefreshToken,
-        user: safeUser   
-    }
+	accessToken:  string
+	refreshToken: string
+	user:         SafeLoginUser
 }
 
-export async function logoutUser(userId: string, rawRefreshToken: string)
+type TokenClaims =
 {
-    const tokenHash = hashToken(rawRefreshToken)
-    await User.findByIdAndUpdate(userId,{$pull: { refreshTokens: tokenHash }})
+	sub:  string
+	role: string
 }
 
+// ─── Factories ────────────────────────────────────────────────────────────────
 
-function issueAccessToken(user: IUser)
+// Creates a fully initialized SafeLoginUser with empty/zero defaults.
+function createSafeLoginUser(): SafeLoginUser
 {
-    return jwt.sign
-    (
-        {
-            sub: user._id,
-            role: user.role
-        },
-        ACCESS_SECRET,
-        { expiresIn: '15m' }
-    )
+	return {
+		id:          '',
+		email:       '',
+		role:        '',
+		isActive:    false,
+		lastLoginAt: new Date(0),
+	}
 }
 
-function issueRefreshToken()
+// Creates a fully initialized LoginResult with empty token strings and a zero safe user.
+function createLoginResult(): LoginResult
 {
-    return crypto.randomBytes(64).toString('hex')
+	return {
+		accessToken:  '',
+		refreshToken: '',
+		user:         createSafeLoginUser(),
+	}
 }
 
-
-function hashToken(token: string)
+// Creates a fully initialized TokenClaims with empty string defaults.
+function createTokenClaims(): TokenClaims
 {
-    return crypto.createHash('sha256').update(token).digest('hex')
+	return { sub: '', role: '' }
+}
+
+// ─── Builders ─────────────────────────────────────────────────────────────────
+
+// Constructs token claims from a regular user document.
+function claimsFromUser(user: IUser): TokenClaims
+{
+	const claims = createTokenClaims()
+	claims.sub   = String(user._id)
+	claims.role  = user.role
+	return claims
+}
+
+// Constructs token claims from an admin user document.
+function claimsFromAdminUser(admin: IAdminUser): TokenClaims
+{
+	const claims = createTokenClaims()
+	claims.sub   = String(admin._id)
+	claims.role  = 'admin'
+	return claims
+}
+
+// Builds a SafeLoginUser from a regular user document.
+function safeUserFromUser(user: IUser): SafeLoginUser
+{
+	const safe       = createSafeLoginUser()
+	safe.id          = String(user._id)
+	safe.email       = user.email
+	safe.role        = user.role
+	safe.isActive    = user.isActive
+	safe.lastLoginAt = user.lastLoginAt !== null ? user.lastLoginAt : new Date(0)
+	return safe
+}
+
+// Builds a SafeLoginUser from an admin user document.
+function safeUserFromAdminUser(admin: IAdminUser): SafeLoginUser
+{
+	const safe       = createSafeLoginUser()
+	safe.id          = String(admin._id)
+	safe.email       = admin.email
+	safe.role        = 'admin'
+	safe.isActive    = admin.isActive
+	safe.lastLoginAt = admin.lastLoginAt
+	return safe
+}
+
+// ─── Token Utilities ──────────────────────────────────────────────────────────
+
+// Issues a signed JWT access token for the given claims.
+function issueAccessToken(claims: TokenClaims): string
+{
+	return jwt.sign({ sub: claims.sub, role: claims.role }, ACCESS_SECRET, { expiresIn: '15m' })
+}
+
+// Generates a cryptographically secure random refresh token.
+function issueRefreshToken(): string
+{
+	return crypto.randomBytes(64).toString('hex')
+}
+
+// Hashes a raw token string with SHA-256 for secure storage.
+function hashToken(token: string): string
+{
+	return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+
+// Authenticates a regular user, enforcing lockout policy, and returns a LoginResult.
+async function loginRegularUser(email: string, password: string): Promise<LoginResult>
+{
+	const genericError = new Error('Invalid credentials')
+	const user = await User.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+
+	if (user === null || !user.isActive)
+	{
+		throw genericError
+	}
+
+	if (user.lockedUntil !== null && user.lockedUntil !== undefined && user.lockedUntil > new Date())
+	{
+		throw new Error('Account temporarily locked. Try again later.')
+	}
+
+	const valid = await user.comparePassword(password)
+
+	if (!valid)
+	{
+		user.loginAttempts += 1
+		if (user.loginAttempts >= MAX_ATTEMPTS)
+		{
+			user.lockedUntil = new Date(Date.now() + LOCK_DURATION)
+		}
+		await user.save()
+		throw genericError
+	}
+
+	user.loginAttempts = 0
+	user.lockedUntil   = null
+	user.lastLoginAt   = new Date()
+
+	const accessToken  = issueAccessToken(claimsFromUser(user))
+	const refreshToken = issueRefreshToken()
+
+	if (!user.refreshTokens)
+	{
+		user.refreshTokens = []
+	}
+
+	user.refreshTokens.push(hashToken(refreshToken))
+	if (user.refreshTokens.length > 5)
+	{
+		user.refreshTokens.shift()
+	}
+
+	await user.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = accessToken
+	result.refreshToken = refreshToken
+	result.user         = safeUserFromUser(user)
+	return result
+}
+
+// Authenticates an admin user against the AdminUser collection, enforcing lockout policy, and returns a LoginResult.
+async function loginAdminUser(email: string, password: string): Promise<LoginResult>
+{
+	const genericError = new Error('Invalid credentials')
+	const admin = await AdminUser.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+
+	if (admin === null || !admin.isActive)
+	{
+		throw genericError
+	}
+
+	if (admin.lockedUntil !== null && admin.lockedUntil > new Date())
+	{
+		throw new Error('Account temporarily locked. Try again later.')
+	}
+
+	const valid = await admin.comparePassword(password)
+
+	if (!valid)
+	{
+		admin.loginAttempts += 1
+		if (admin.loginAttempts >= MAX_ATTEMPTS)
+		{
+			admin.lockedUntil = new Date(Date.now() + LOCK_DURATION)
+		}
+		await admin.save()
+		throw genericError
+	}
+
+	admin.loginAttempts = 0
+	admin.lockedUntil   = null
+	admin.lastLoginAt   = new Date()
+
+	const accessToken  = issueAccessToken(claimsFromAdminUser(admin))
+	const refreshToken = issueRefreshToken()
+
+	admin.refreshTokens.push(hashToken(refreshToken))
+	if (admin.refreshTokens.length > 5)
+	{
+		admin.refreshTokens.shift()
+	}
+
+	await admin.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = accessToken
+	result.refreshToken = refreshToken
+	result.user         = safeUserFromAdminUser(admin)
+	return result
+}
+
+// Dispatches the login request to the correct handler based on the requested role.
+export async function loginUser(email: string, password: string, role: 'user' | 'admin'): Promise<LoginResult>
+{
+	if (role === 'admin') return loginAdminUser(email, password)
+	return loginRegularUser(email, password)
+}
+
+// ─── Refresh ──────────────────────────────────────────────────────────────────
+
+// Rotates the admin refresh token and returns a new LoginResult.
+async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
+{
+	const admin = await AdminUser.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+
+	if (admin === null)
+	{
+		throw new Error('Refresh token reuse detected or invalid token')
+	}
+
+	admin.refreshTokens = admin.refreshTokens.filter(t => t !== tokenHash)
+
+	const newRefreshToken = issueRefreshToken()
+	admin.refreshTokens.push(hashToken(newRefreshToken))
+	await admin.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = issueAccessToken(claimsFromAdminUser(admin))
+	result.refreshToken = newRefreshToken
+	result.user         = safeUserFromAdminUser(admin)
+	return result
+}
+
+// Rotates the stored refresh token and returns a new access token, checking both User and AdminUser collections.
+export async function refreshAccessToken(rawRefreshToken: string): Promise<LoginResult>
+{
+	const tokenHash = hashToken(rawRefreshToken)
+	const user = await User.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+
+	if (user === null)
+	{
+		return refreshAdminAccessToken(tokenHash)
+	}
+
+	user.refreshTokens = user.refreshTokens.filter(t => t !== tokenHash)
+
+	const newRefreshToken = issueRefreshToken()
+	user.refreshTokens.push(hashToken(newRefreshToken))
+	await user.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = issueAccessToken(claimsFromUser(user))
+	result.refreshToken = newRefreshToken
+	result.user         = safeUserFromUser(user)
+	return result
+}
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
+// Removes the hashed refresh token from whichever collection owns the given userId.
+export async function logoutUser(userId: string, rawRefreshToken: string): Promise<void>
+{
+	const tokenHash  = hashToken(rawRefreshToken)
+	const userResult = await User.findByIdAndUpdate(userId, { $pull: { refreshTokens: tokenHash } })
+
+	if (userResult === null)
+	{
+		await AdminUser.findByIdAndUpdate(userId, { $pull: { refreshTokens: tokenHash } })
+	}
 }

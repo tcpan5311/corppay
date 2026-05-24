@@ -3,7 +3,12 @@ import { Request, Response, Router } from 'express'
 import fs from 'fs'
 import multer, { FileFilterCallback } from 'multer'
 import path from 'path'
-
+import {
+	FormErrors,
+	UploadFileValidatable,
+	hasErrors,
+	validateAllFields,
+} from '../../src/validation/registerBusinessValidation'
 import { companyRateLimit } from '../middleware/company_middleware'
 import { EntityType, IUploadedDocument } from '../models/Company'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/admin_confirm_email_service'
@@ -29,58 +34,13 @@ function extractBodyDirector(body: Record<string, unknown>): Record<string, unkn
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const NRIC_REGEX      = /^\d{12}$/
-const PASSPORT_REGEX  = /^[A-Z0-9]{6,12}$/
-const EMAIL_REGEX     = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const SSM_DIGIT_REGEX = /^\d{12}$/
-
-const ALLOWED_MIME_TYPES = [
-	'application/pdf',
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-]
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024
-
-type RegistrationValidationErrors =
-{
-	companyName:       string | null
-	ssmNumber:         string | null
-	entityType:        string | null
-	registeredAddress: string | null
-	registeredEmail:   string | null
-	icPassport:        string | null
-	directorRole:      string | null
-	ownershipPct:      string | null
-	ssmDoc:            string | null
-	icDoc:             string | null
-}
-
-// Creates a fully initialized RegistrationValidationErrors with all fields set to null.
-function createRegistrationValidationErrors(): RegistrationValidationErrors
-{
-	return {
-		companyName:       null,
-		ssmNumber:         null,
-		entityType:        null,
-		registeredAddress: null,
-		registeredEmail:   null,
-		icPassport:        null,
-		directorRole:      null,
-		ownershipPct:      null,
-		ssmDoc:            null,
-		icDoc:             null,
-	}
-}
-
 type UploadedFileInfo =
 {
 	mimetype: string
 	size:     number
 }
 
-type ValidateRegistrationInput =
+type RegistrationFieldValues =
 {
 	companyName:       string
 	ssmNumber:         string
@@ -90,12 +50,12 @@ type ValidateRegistrationInput =
 	icPassport:        string
 	directorRole:      string
 	ownershipPct:      string
-	ssmFile:           UploadedFileInfo | null
-	icFile:            UploadedFileInfo | null
+	ssmDoc:            UploadFileValidatable
+	icDoc:             UploadFileValidatable
 }
 
-// Creates a fully initialized ValidateRegistrationInput with empty strings and null files.
-function createValidateRegistrationInput(): ValidateRegistrationInput
+// Creates a fully initialized RegistrationFieldValues with empty strings and null documents.
+function createRegistrationFieldValues(): RegistrationFieldValues
 {
 	return {
 		companyName:       '',
@@ -106,152 +66,23 @@ function createValidateRegistrationInput(): ValidateRegistrationInput
 		icPassport:        '',
 		directorRole:      '',
 		ownershipPct:      '',
-		ssmFile:           null,
-		icFile:            null,
+		ssmDoc:            null,
+		icDoc:             null,
 	}
 }
 
-// Returns an error string if the company name is blank or exceeds 100 characters, otherwise null.
-function validateCompanyName(value: string): string | null
+// Converts a multer file info object to the UploadFileValidatable shape expected by the shared validator.
+function adaptMulterFile(file: UploadedFileInfo | null): UploadFileValidatable
 {
-	if (value.trim() === '')       return 'Company name is required.'
-	if (value.trim().length > 100) return 'Company name must be 100 characters or less.'
-	return null
-}
-
-// Returns an error string if the SSM number is not exactly 12 digits or has an invalid year prefix, otherwise null.
-function validateSsmNumber(value: string): string | null
-{
-	const trimmed = value.trim()
-	if (trimmed === '')                 return 'Registration number is required.'
-	if (!SSM_DIGIT_REGEX.test(trimmed)) return 'Must be exactly 12 digits (e.g. 202301234567).'
-
-	const year        = parseInt(trimmed.substring(0, 4), 10)
-	const currentYear = new Date().getFullYear()
-
-	if (year < 1900 || year > currentYear)
-	{
-		return `Year prefix must be between 1900 and ${currentYear}.`
-	}
-
-	return null
-}
-
-// Returns an error string if the entity type is not one of the accepted values, otherwise null.
-function validateEntityType(value: string): string | null
-{
-	const valid = ['sdn_bhd', 'sole_proprietor']
-	if (value.trim() === '')       return 'Please select an entity type.'
-	if (!valid.includes(value.trim())) return 'Please select an entity type.'
-	return null
-}
-
-// Returns an error string if the registered address is blank or exceeds 200 characters, otherwise null.
-function validateRegisteredAddress(value: string): string | null
-{
-	if (value.trim() === '')       return 'Registered address is required.'
-	if (value.trim().length > 200) return 'Address must be 200 characters or less.'
-	return null
-}
-
-// Returns an error string if the email address is blank or does not match the expected format, otherwise null.
-function validateRegisteredEmail(value: string): string | null
-{
-	if (value.trim() === '')             return 'Email address is required.'
-	if (!EMAIL_REGEX.test(value.trim())) return 'Please enter a valid email address.'
-	return null
-}
-
-// Normalizes an IC or passport string to uppercase with all whitespace removed.
-function normalizeIcPassport(value: string): string
-{
-	return value.toUpperCase().replace(/\s/g, '')
-}
-
-// Returns an error string if the IC or passport number does not match a valid NRIC or passport format, otherwise null.
-function validateIcPassport(value: string): string | null
-{
-	if (value.trim() === '') return 'IC / Passport number is required.'
-
-	const normalized = normalizeIcPassport(value)
-
-	if (NRIC_REGEX.test(normalized) || PASSPORT_REGEX.test(normalized)) return null
-
-	return 'Enter a valid 12-digit NRIC or 6–12 character passport number (A–Z, 0–9).'
-}
-
-// Returns an error string if the director role is not one of the accepted values, otherwise null.
-function validateDirectorRole(value: string): string | null
-{
-	const valid = ['director', 'owner']
-	if (value.trim() === '')           return 'Please select a role.'
-	if (!valid.includes(value.trim())) return 'Please select a role.'
-	return null
-}
-
-// Returns an error string if the ownership percentage is present but not a valid integer between 0 and 100, otherwise null.
-function validateOwnershipPct(value: string): string | null
-{
-	if (value.trim() === '') return 'Ownership percentage is required.'
-
-	if (!/^\d+$/.test(value.trim()))
-	{
-		return 'Enter a valid number between 0 and 100.'
-	}
-
-	const num = parseFloat(value)
-	if (isNaN(num)) return 'Enter a valid number.'
-	if (num < 0)    return 'Percentage cannot be negative.'
-	if (num > 100)  return 'Percentage cannot exceed 100.'
-	return null
-}
-
-// Returns an error string if the uploaded file is absent, has a disallowed MIME type, or exceeds the 5 MB limit, otherwise null.
-function validateUploadedFile(file: UploadedFileInfo | null, label: string): string | null
-{
-	if (file === null)
-	{
-		return `${label} is required.`
-	}
-	if (!ALLOWED_MIME_TYPES.includes(file.mimetype.toLowerCase()))
-	{
-		return 'Only PDF, JPG, or PNG files are accepted.'
-	}
-	if (file.size > MAX_FILE_BYTES)
-	{
-		return 'File must be 5 MB or less.'
-	}
-	return null
-}
-
-// Validates all registration fields and file uploads, returning a fully populated error object.
-function validateRegistrationInput(input: ValidateRegistrationInput): RegistrationValidationErrors
-{
-	return {
-		companyName:       validateCompanyName(input.companyName),
-		ssmNumber:         validateSsmNumber(input.ssmNumber),
-		entityType:        validateEntityType(input.entityType),
-		registeredAddress: validateRegisteredAddress(input.registeredAddress),
-		registeredEmail:   validateRegisteredEmail(input.registeredEmail),
-		icPassport:        validateIcPassport(input.icPassport),
-		directorRole:      validateDirectorRole(input.directorRole),
-		ownershipPct:      validateOwnershipPct(input.ownershipPct),
-		ssmDoc:            validateUploadedFile(input.ssmFile, 'Certificate of Incorporation'),
-		icDoc:             validateUploadedFile(input.icFile, 'Director IC / Passport Copy'),
-	}
-}
-
-// Returns true if any field in the error object is non-null, otherwise false.
-function hasRegistrationErrors(errors: RegistrationValidationErrors): boolean
-{
-	return Object.values(errors).some((v) => v !== null)
+	if (file === null) return null
+	return { bytes: file.size, mimeType: file.mimetype }
 }
 
 // Collects all non-null error entries into a plain object suitable for inclusion in a 400 response body.
-function collectErrorMessages(errors: RegistrationValidationErrors): Record<string, string>
+function collectErrorMessages(errors: FormErrors): Record<string, string>
 {
-	const result: Record<string, string>                                              = {}
-	const entries = Object.entries(errors) as [keyof RegistrationValidationErrors, string | null][]
+	const result:   Record<string, string>                              = {}
+	const entries = Object.entries(errors) as [keyof FormErrors, string | null][]
 
 	for (const [field, message] of entries)
 	{
@@ -264,48 +95,51 @@ function collectErrorMessages(errors: RegistrationValidationErrors): Record<stri
 	return result
 }
 
-// Builds a ValidateRegistrationInput from a parsed Express request body and multer file map.
-function buildValidationInput(
+// Extracts all registration field values from the request body and multer file map, adapting them to the shared validator shape.
+function buildRegistrationFieldValues(
 	body:  Record<string, unknown>,
 	files: Record<string, Express.Multer.File[]> | null,
-): ValidateRegistrationInput
+): RegistrationFieldValues
 {
-	const director        = extractBodyDirector(body)
-	const icPassportNested = extractBodyString(director, 'icPassport')
-	const icPassportFlat   = extractBodyString(body, 'director.icPassport')
-	const icPassportRaw    = icPassportNested !== '' ? icPassportNested : icPassportFlat
+	const director           = extractBodyDirector(body)
+	const icPassportNested   = extractBodyString(director, 'icPassport')
+	const icPassportFlat     = extractBodyString(body, 'director.icPassport')
+	const icPassportRaw      = icPassportNested !== '' ? icPassportNested : icPassportFlat
 
 	const directorRoleNested = extractBodyString(director, 'role')
 	const directorRoleFlat   = extractBodyString(body, 'director.role')
 	const directorRoleRaw    = directorRoleNested !== '' ? directorRoleNested : directorRoleFlat
 
-	const ownershipNested = extractBodyString(director, 'ownershipPct')
-	const ownershipFlat   = extractBodyString(body, 'director.ownershipPct')
-	const ownershipPctRaw = ownershipNested !== '' ? ownershipNested : ownershipFlat
+	const ownershipNested    = extractBodyString(director, 'ownershipPct')
+	const ownershipFlat      = extractBodyString(body, 'director.ownershipPct')
+	const ownershipPctRaw    = ownershipNested !== '' ? ownershipNested : ownershipFlat
 
-	const ssmMulFile = files && files['ssmDoc'] && files['ssmDoc'][0] ? files['ssmDoc'][0] : null
-	const icMulFile  = files && files['icDoc']  && files['icDoc'][0]  ? files['icDoc'][0]  : null
-
-	const ssmFile: UploadedFileInfo | null = ssmMulFile !== null
-		? { mimetype: ssmMulFile.mimetype, size: ssmMulFile.size }
+	const ssmMulFile = files !== null && files['ssmDoc'] !== undefined && files['ssmDoc'][0] !== undefined
+		? files['ssmDoc'][0]
+		: null
+	const icMulFile  = files !== null && files['icDoc'] !== undefined && files['icDoc'][0] !== undefined
+		? files['icDoc'][0]
 		: null
 
-	const icFile: UploadedFileInfo | null = icMulFile !== null
+	const ssmFileInfo: UploadedFileInfo | null = ssmMulFile !== null
+		? { mimetype: ssmMulFile.mimetype, size: ssmMulFile.size }
+		: null
+	const icFileInfo: UploadedFileInfo | null = icMulFile !== null
 		? { mimetype: icMulFile.mimetype, size: icMulFile.size }
 		: null
 
-	const input             = createValidateRegistrationInput()
-	input.companyName       = extractBodyString(body, 'name')
-	input.ssmNumber         = extractBodyString(body, 'ssmNumber')
-	input.entityType        = extractBodyString(body, 'entityType')
-	input.registeredAddress = extractBodyString(body, 'registeredAddress')
-	input.registeredEmail   = extractBodyString(body, 'submittedBy')
-	input.icPassport        = icPassportRaw
-	input.directorRole      = directorRoleRaw
-	input.ownershipPct      = ownershipPctRaw
-	input.ssmFile           = ssmFile
-	input.icFile            = icFile
-	return input
+	const values             = createRegistrationFieldValues()
+	values.companyName       = extractBodyString(body, 'name')
+	values.ssmNumber         = extractBodyString(body, 'ssmNumber')
+	values.entityType        = extractBodyString(body, 'entityType')
+	values.registeredAddress = extractBodyString(body, 'registeredAddress')
+	values.registeredEmail   = extractBodyString(body, 'submittedBy')
+	values.icPassport        = icPassportRaw
+	values.directorRole      = directorRoleRaw
+	values.ownershipPct      = ownershipPctRaw
+	values.ssmDoc            = adaptMulterFile(ssmFileInfo)
+	values.icDoc             = adaptMulterFile(icFileInfo)
+	return values
 }
 
 // ─── Multer ───────────────────────────────────────────────────────────────────
@@ -453,17 +287,27 @@ router.post('/register', companyRateLimit, uploadFields, async (req: Request, re
 	const files = req.files as Record<string, Express.Multer.File[]> | null
 	const body  = req.body  as Record<string, unknown>
 
-	const validationInput  = buildValidationInput(body, files)
-	const validationErrors = validateRegistrationInput(validationInput)
+	const values = buildRegistrationFieldValues(body, files)
+	const errors = validateAllFields(
+		values.companyName,
+		values.ssmNumber,
+		values.entityType,
+		values.registeredAddress,
+		values.registeredEmail,
+		values.icPassport,
+		values.directorRole,
+		values.ownershipPct,
+		values.ssmDoc,
+		values.icDoc,
+	)
 
-	if (hasRegistrationErrors(validationErrors))
+	if (hasErrors(errors))
 	{
 		return res.status(400).json({
 			error:  'Validation failed.',
-			errors: collectErrorMessages(validationErrors),
+			errors: collectErrorMessages(errors),
 		})
 	}
-
 	const resolved = resolveUploadedFiles(files)
 
 	const ssmFile    = resolved.ssmFile as Express.Multer.File
@@ -523,14 +367,25 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 	const files = req.files as Record<string, Express.Multer.File[]> | null
 	const body  = req.body  as Record<string, unknown>
 
-	const validationInput  = buildValidationInput(body, files)
-	const validationErrors = validateRegistrationInput(validationInput)
+	const values = buildRegistrationFieldValues(body, files)
+	const errors = validateAllFields(
+		values.companyName,
+		values.ssmNumber,
+		values.entityType,
+		values.registeredAddress,
+		values.registeredEmail,
+		values.icPassport,
+		values.directorRole,
+		values.ownershipPct,
+		values.ssmDoc,
+		values.icDoc,
+	)
 
-	if (hasRegistrationErrors(validationErrors))
+	if (hasErrors(errors))
 	{
 		return res.status(400).json({
 			error:  'Validation failed.',
-			errors: collectErrorMessages(validationErrors),
+			errors: collectErrorMessages(errors),
 		})
 	}
 

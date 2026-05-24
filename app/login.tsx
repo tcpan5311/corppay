@@ -12,6 +12,10 @@ import {
   TouchableOpacity,
   View
 } from 'react-native'
+import {
+  validateLoginEmail,
+  validateLoginPassword
+} from '../corppay-backend/src/validation/loginValidation'
 
 export default function LoginScreen()
 {
@@ -22,33 +26,55 @@ export default function LoginScreen()
   const [password, setPassword]           = useState('')
   const [showPassword, setShowPassword]   = useState(false)
   const [isSubmitting, setIsSubmitting]   = useState(false)
-  const [errorMessage, setErrorMessage]   = useState<string | null>(null)
+  const [emailTouched, setEmailTouched]       = useState(false)
+  const [passwordTouched, setPasswordTouched] = useState(false)
+  const [submitError, setSubmitError]         = useState('')
 
-  async function handleLogin()
+  const emailError    = emailTouched    ? validateLoginEmail(email)       ?? '' : ''
+  const passwordError = passwordTouched ? validateLoginPassword(password) ?? '' : ''
+
+  const isFormReady = (
+	  validateLoginEmail(email)    === null &&
+	  validateLoginPassword(password) === null &&
+	  !isSubmitting
+  )
+
+  async function handleLogin(): Promise<void>
   {
-    if (!email || !password) 
-    {
-      setErrorMessage('Please enter your email and password.')
-      return
-    }
-
-    setErrorMessage(null)
+    setSubmitError('')
     setIsSubmitting(true)
 
     try
     {
       await login(email, password, activeTab)
-      router.replace('/' as any)
+      router.replace('/' as never)
     }
-    catch (err: any)
+    catch (err: unknown)
     {
-      setErrorMessage(err?.message ?? 'Login failed. Please try again.')
+      const message = err !== null && typeof err === 'object' && 'message' in err
+        ? String((err as Record<string, unknown>)['message'])
+        : 'Login failed. Please try again.'
+      setSubmitError(message)
     }
     finally
     {
       setIsSubmitting(false)
     }
   }
+
+  const tabButtonBase =
+    "flex-1 flex-row items-center justify-center py-2.5 rounded-full"
+
+  const activeTabStyle = {
+    backgroundColor: 'white'
+  }
+
+  const inactiveTabStyle = {
+    backgroundColor: 'transparent'
+  }
+
+  const activeText = "text-sm font-medium text-gray-800"
+  const inactiveText = "text-sm font-medium text-gray-400"
 
   return (
     <View className="flex-1 bg-[#F9FAFB]">
@@ -89,10 +115,10 @@ export default function LoginScreen()
             {/* TAB SWITCHER */}
             <View className="flex-row bg-gray-100 rounded-full p-1 mb-8">
 
+              {/* USER TAB */}
               <TouchableOpacity
-                className={`flex-1 flex-row items-center justify-center py-2.5 rounded-full ${
-                  activeTab === 'user' ? 'bg-white shadow-sm' : 'bg-transparent'
-                }`}
+                style={activeTab === 'user' ? activeTabStyle : inactiveTabStyle}
+                className={tabButtonBase}
                 onPress={() => setActiveTab('user')}
               >
                 <MaterialCommunityIcons
@@ -101,15 +127,15 @@ export default function LoginScreen()
                   color={activeTab === 'user' ? '#374151' : '#9CA3AF'}
                   style={{ marginRight: 6 }}
                 />
-                <Text className={`text-sm font-medium ${activeTab === 'user' ? 'text-gray-800' : 'text-gray-400'}`}>
+                <Text className={activeTab === 'user' ? activeText : inactiveText}>
                   User
                 </Text>
               </TouchableOpacity>
 
+              {/* ADMIN TAB */}
               <TouchableOpacity
-                className={`flex-1 flex-row items-center justify-center py-2.5 rounded-full ${
-                  activeTab === 'admin' ? 'bg-white shadow-sm' : 'bg-transparent'
-                }`}
+                style={activeTab === 'admin' ? activeTabStyle : inactiveTabStyle}
+                className={tabButtonBase}
                 onPress={() => setActiveTab('admin')}
               >
                 <MaterialCommunityIcons
@@ -118,10 +144,11 @@ export default function LoginScreen()
                   color={activeTab === 'admin' ? '#374151' : '#9CA3AF'}
                   style={{ marginRight: 6 }}
                 />
-                <Text className={`text-sm font-medium ${activeTab === 'admin' ? 'text-gray-800' : 'text-gray-400'}`}>
+                <Text className={activeTab === 'admin' ? activeText : inactiveText}>
                   Admin
                 </Text>
               </TouchableOpacity>
+
             </View>
 
             {/* EMAIL */}
@@ -129,18 +156,31 @@ export default function LoginScreen()
               <Text className="text-gray-700 text-sm font-medium mb-2">
                 Email Address
               </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 ${
+                emailError !== '' ? 'border-red-400 bg-red-50' : 'border-gray-200'
+              }`}>
                 <TextInput
                   className="flex-1 text-gray-800 text-sm"
                   placeholder="Enter your email"
                   placeholderTextColor="#9CA3AF"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(v) =>
+                  {
+                    setEmail(v)
+                    if (emailTouched) setEmailTouched(true)
+                  }}
+                  onBlur={() => setEmailTouched(true)}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
               </View>
+              {emailError !== '' && (
+                <View className="flex-row items-center mt-1 ml-1">
+                  <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+                  <Text className="text-red-600 text-xs flex-1" accessibilityRole="alert">{emailError}</Text>
+                </View>
+              )}
             </View>
 
             {/* PASSWORD */}
@@ -148,13 +188,20 @@ export default function LoginScreen()
               <Text className="text-gray-700 text-sm font-medium mb-2">
                 Password
               </Text>
-              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+              <View className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 ${
+                passwordError !== '' ? 'border-red-400 bg-red-50' : 'border-gray-200'
+              }`}>
                 <TextInput
                   className="flex-1 text-gray-800 text-sm"
                   placeholder="Enter your password"
                   placeholderTextColor="#9CA3AF"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) =>
+                  {
+                    setPassword(v)
+                    if (passwordTouched) setPasswordTouched(true)
+                  }}
+                  onBlur={() => setPasswordTouched(true)}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -167,12 +214,19 @@ export default function LoginScreen()
                   />
                 </TouchableOpacity>
               </View>
+              {passwordError !== '' && (
+                <View className="flex-row items-center mt-1 ml-1">
+                  <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+                  <Text className="text-red-600 text-xs flex-1" accessibilityRole="alert">{passwordError}</Text>
+                </View>
+              )}
             </View>
 
-            {/* ERROR MESSAGE */}
-            {errorMessage && (
-              <View className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
-                <Text className="text-red-600 text-sm">{errorMessage}</Text>
+            {/* SUBMIT ERROR */}
+            {submitError !== '' && (
+              <View className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
+                <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 1 }} />
+                <Text className="text-red-600 text-sm flex-1">{submitError}</Text>
               </View>
             )}
 
@@ -187,20 +241,24 @@ export default function LoginScreen()
 
             {/* SIGN IN */}
             <TouchableOpacity
-              className="bg-blue-600 rounded-2xl py-4 items-center mb-6 shadow-md shadow-blue-300"
+              className={`rounded-2xl py-4 items-center mb-6 shadow-md ${
+                isFormReady ? 'bg-blue-600 shadow-blue-300' : 'bg-gray-300 shadow-gray-200'
+              }`}
               onPress={handleLogin}
-              disabled={isSubmitting}
+              disabled={!isFormReady}
             >
               {isSubmitting
                 ? <ActivityIndicator color="#fff" />
-                : <Text className="text-white text-base font-semibold tracking-wide">Sign In</Text>
+                : <Text className={`text-base font-semibold tracking-wide ${
+                  isFormReady ? 'text-white' : 'text-gray-400'
+                }`}>Sign In</Text>
               }
             </TouchableOpacity>
 
             {/* SIGN UP */}
             <View className="flex-row justify-center">
               <Text className="text-gray-500 text-sm">Don't have an account? </Text>
-              <TouchableOpacity onPress={() => router.push('/register-select' as any)}>
+              <TouchableOpacity onPress={() => router.push('/register-select' as never)}>
                 <Text className="text-blue-600 text-sm font-semibold">Sign Up</Text>
               </TouchableOpacity>
             </View>
