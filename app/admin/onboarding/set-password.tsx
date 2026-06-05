@@ -274,9 +274,11 @@ export default function SetPasswordScreen()
 	const webCursorStyle  = Platform.OS === 'web' ? { cursor: 'pointer' } : null
 
 	const isFormReady = (
-		state.phase === 'ready' &&
-		state.password !== '' &&
-		state.confirmPassword !== '' &&
+		state.phase === 'ready'         &&
+		state.password !== ''           &&
+		state.confirmPassword !== ''    &&
+		state.passwordError === ''      &&
+		state.confirmError  === ''      &&
 		!state.isSubmitting
 	)
 
@@ -354,6 +356,9 @@ export default function SetPasswordScreen()
 											placeholderTextColor="#9CA3AF"
 											value={state.password}
 											onChangeText={handlePasswordChange}
+											onBlur={() =>
+											setState((prev) => ({ ...prev, passwordError: validatePassword(prev.password) }))
+											}
 											secureTextEntry={!state.showPassword}
 											autoCapitalize="none"
 											autoCorrect={false}
@@ -402,6 +407,9 @@ export default function SetPasswordScreen()
 											placeholderTextColor="#9CA3AF"
 											value={state.confirmPassword}
 											onChangeText={handleConfirmChange}
+											onBlur={() =>
+											setState((prev) => ({...prev, confirmError: validateConfirmPassword(prev.password, prev.confirmPassword),}))
+											}
 											secureTextEntry={!state.showConfirm}
 											autoCapitalize="none"
 											autoCorrect={false}

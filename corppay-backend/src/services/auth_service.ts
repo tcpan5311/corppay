@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
 import AdminUser, { IAdminUser } from '../models/AdminUser'
+import Company from '../models/Company'
 import User, { IUser } from '../models/User'
 
 dotenv.config()
@@ -58,6 +59,60 @@ function createLoginResult(): LoginResult
 		refreshToken: '',
 		user:         createSafeLoginUser(),
 	}
+}
+
+export type AdminCompanyOption =
+{
+	companyId:   string
+	companyName: string
+}
+
+export type LookupAdminCompaniesResult =
+{
+	found:     boolean
+	companies: AdminCompanyOption[]
+}
+
+// Creates a fully initialized AdminCompanyOption with empty string defaults.
+function createAdminCompanyOption(): AdminCompanyOption
+{
+	return { companyId: '', companyName: '' }
+}
+
+// Creates a fully initialized LookupAdminCompaniesResult defaulting to not found with an empty list.
+function createLookupAdminCompaniesResult(): LookupAdminCompaniesResult
+{
+	return { found: false, companies: [] }
+}
+
+// Returns all companies the given email holds an admin membership in.
+export async function lookupAdminCompanies(email: string): Promise<LookupAdminCompaniesResult>
+{
+	const result    = createLookupAdminCompaniesResult()
+	const adminList = await AdminUser.find({ email: email.toLowerCase().trim() }).select('companyId').lean()
+
+	if (adminList.length === 0) return result
+
+	const companyIds     = adminList.map((a) => a.companyId)
+	const companyList    = await Company.find({ _id: { $in: companyIds } }).select('_id name').lean()
+	const nameMap        = new Map<string, string>()
+
+	for (const c of companyList)
+	{
+		nameMap.set(String(c._id), c.name)
+	}
+
+	result.found     = true
+	result.companies = adminList.map((admin) =>
+	{
+		const opt       = createAdminCompanyOption()
+		const idStr     = String(admin.companyId)
+		opt.companyId   = idStr
+		opt.companyName = nameMap.has(idStr) ? nameMap.get(idStr) as string : ''
+		return opt
+	})
+
+	return result
 }
 
 // Creates a fully initialized TokenClaims with empty string defaults.
@@ -189,10 +244,10 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 }
 
 // Authenticates an admin user against the AdminUser collection, enforcing lockout policy, and returns a LoginResult.
-async function loginAdminUser(email: string, password: string): Promise<LoginResult>
+async function loginAdminUser(email: string, password: string, companyId: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
-	const admin = await AdminUser.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+	const admin = await AdminUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
 
 	if (admin === null || !admin.isActive)
 	{
@@ -240,9 +295,14 @@ async function loginAdminUser(email: string, password: string): Promise<LoginRes
 }
 
 // Dispatches the login request to the correct handler based on the requested role.
-export async function loginUser(email: string, password: string, role: 'user' | 'admin'): Promise<LoginResult>
+export async function loginUser(
+	email:     string,
+	password:  string,
+	role:      'user' | 'admin',
+	companyId: string,
+): Promise<LoginResult>
 {
-	if (role === 'admin') return loginAdminUser(email, password)
+	if (role === 'admin') return loginAdminUser(email, password, companyId)
 	return loginRegularUser(email, password)
 }
 

@@ -124,7 +124,10 @@ export async function completeOnboarding(
 		return result
 	}
 
-	const existingAdmin = await AdminUser.findOne({ email: pending.email.toLowerCase() })
+	const existingAdmin = await AdminUser.findOne({
+		email:     pending.email.toLowerCase(),
+		companyId: pending.companyId,
+	})
 
 	if (existingAdmin !== null)
 	{

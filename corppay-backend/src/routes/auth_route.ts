@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { authenticate } from '../middleware/auth_middleware'
-import { loginUser, logoutUser, refreshAccessToken } from '../services/auth_service'
+import { loginUser, logoutUser, lookupAdminCompanies, refreshAccessToken } from '../services/auth_service'
 import { validateLoginFields } from '../validation/loginValidation'
 
 const router = Router()
@@ -31,6 +31,33 @@ function extractRefreshToken(body: Record<string, unknown>, headers: Record<stri
 	return fromBody !== '' ? fromBody : fromHeader
 }
 
+// Finds all companies an email holds an admin membership in and returns them for the company picker.
+router.post(
+	'/lookup',
+	loginLimiter,
+	async (request: Request, response: Response) =>
+	{
+		const rawBody = request.body as Record<string, unknown>
+		const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim().toLowerCase() : ''
+
+		if (email === '')
+		{
+			return response.status(400).json({ error: 'Email is required.' })
+		}
+
+		try
+		{
+			const result = await lookupAdminCompanies(email)
+			return response.json({ found: result.found, companies: result.companies })
+		}
+		catch (error)
+		{
+			console.error('[auth_route] lookup error:', error)
+			return response.status(500).json({ error: 'Lookup failed.' })
+		}
+	}
+)
+
 // Validates credentials and role, issues tokens, and returns the safe user payload.
 router.post(
 	'/login',
@@ -38,9 +65,10 @@ router.post(
 	async (request: Request, response: Response) =>
 	{
 		const rawBody  = request.body  as Record<string, unknown>
-		const email    = typeof rawBody['email']    === 'string' ? rawBody['email']    : ''
-		const password = typeof rawBody['password'] === 'string' ? rawBody['password'] : ''
-		const roleRaw  = typeof rawBody['role']     === 'string' ? rawBody['role']     : ''
+		const email     = typeof rawBody['email']     === 'string' ? rawBody['email']     : ''
+		const password  = typeof rawBody['password']  === 'string' ? rawBody['password']  : ''
+		const roleRaw   = typeof rawBody['role']      === 'string' ? rawBody['role']      : ''
+		const companyId = typeof rawBody['companyId'] === 'string' ? rawBody['companyId'] : ''
 
 		const validationError = validateLoginFields(email, password, roleRaw)
 		if (validationError !== null)
@@ -55,7 +83,7 @@ router.post(
 
 		try
 		{
-			const result = await loginUser(email, password, roleRaw)
+			const result = await loginUser(email, password, roleRaw, companyId)
 
 			return response.json({
 				accessToken:  result.accessToken,

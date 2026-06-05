@@ -99,5 +99,6 @@ const CompanySchema = new Schema<ICompany>(
 
 CompanySchema.index({ submittedBy: 1 })
 CompanySchema.index({ status: 1 })
+CompanySchema.index({ name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } },)
 
 export default mongoose.model<ICompany>('Company', CompanySchema)

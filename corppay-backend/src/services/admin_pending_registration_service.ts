@@ -62,6 +62,17 @@ export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendin
 	})
 }
 
+// Returns the active pending registration whose name matches the given value case-insensitively, or null if absent.
+export async function findActivePendingByName(name: string): Promise<IPendingRegistration | null>
+{
+	const trimmed = name.trim()
+	return PendingRegistration.findOne({
+		name:      { $regex: new RegExp(`^${trimmed}$`, 'i') },
+		status:    'pending',
+		expiresAt: { $gt: new Date() },
+	})
+}
+
 // Persists a pending registration with a fresh token and 15-minute expiry, returning the token details.
 export async function savePendingRegistration(payload: SavePendingRegistrationPayload): Promise<SavePendingResult>
 {

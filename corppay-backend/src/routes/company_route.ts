@@ -12,8 +12,8 @@ import {
 import { companyRateLimit } from '../middleware/company_middleware'
 import { EntityType, IUploadedDocument } from '../models/Company'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/admin_confirm_email_service'
-import { createSavePendingRegistrationPayload, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
-import { findCompanyBySsm, getCompaniesByUser, getCompanyById, registerCompany } from '../services/company_service'
+import { createSavePendingRegistrationPayload, findActivePendingByName, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
+import { findCompanyByName, findCompanyBySsm, getCompaniesByUser, getCompanyById, registerCompany } from '../services/company_service'
 
 // ─── Body Extraction ──────────────────────────────────────────────────────────
 
@@ -415,6 +415,27 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 	if (existingPending !== null)
 	{
 		return res.status(409).json({ error: 'A verification email for this SSM number was already sent. Please check your inbox, or wait for it to expire before resubmitting.' })
+	}
+
+	const existingCompanyByName = await findCompanyByName(extractBodyString(body, 'name'))
+
+	if (existingCompanyByName !== null)
+	{
+		if (existingCompanyByName.status === 'approved')
+		{
+			return res.status(409).json({ error: 'A company with this name is already registered.' })
+		}
+		if (existingCompanyByName.status === 'pending')
+		{
+			return res.status(409).json({ error: 'A registration with this company name is already under review.' })
+		}
+	}
+
+	const existingPendingByName = await findActivePendingByName(extractBodyString(body, 'name'))
+
+	if (existingPendingByName !== null)
+	{
+		return res.status(409).json({ error: 'A verification email for a company with this name was already sent. Please check your inbox, or wait for it to expire before resubmitting.' })
 	}
 
 	const ssmFile    = resolved.ssmFile as Express.Multer.File

@@ -24,7 +24,7 @@ type AuthContextValue =
 	user:        AuthUser | null
 	accessToken: string
 	isLoading:   boolean
-	login:       (email: string, password: string, role: UserRole) => Promise<void>
+	login: (email: string, password: string, role: UserRole, companyId: string) => Promise<void>
 	logout:      () => Promise<void>
 }
 
@@ -160,13 +160,13 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 		restoreOnMount()
 	}, [])
 
-	// Authenticates the user against the API and persists tokens on success.
-	async function login(email: string, password: string, role: UserRole): Promise<void>
+	// Authenticates the user against the API, including company context for admin logins, and persists tokens on success.
+	async function login(email: string, password: string, role: UserRole, companyId: string): Promise<void>
 	{
 		const response = await fetch(`${API_BASE}/auth/login`, {
 			method:  'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body:    JSON.stringify({ email, password, role }),
+			body: JSON.stringify({ email, password, role, companyId }),
 		})
 
 		const data = await response.json() as Record<string, unknown>

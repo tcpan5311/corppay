@@ -920,6 +920,8 @@ export default function RegisterBusinessScreen()
 	const searchParams = useLocalSearchParams()
 	const queryToken   = typeof searchParams['token'] === 'string' ? searchParams['token'] : ''
 
+	const [resubmissionSuccess, setResubmissionSuccess] = useState<boolean>(false)
+
 	useEffect
 	(
 		() =>
@@ -1193,24 +1195,7 @@ export default function RegisterBusinessScreen()
 
 				await submitResubmission(params)
 
-				setToastVisible(true)
-
-				submitTimerRef.current = setTimeout(
-					() =>
-					{
-						if (!isMountedRef.current) return
-						setToastVisible(false)
-						if (Platform.OS === 'web')
-						{
-							window.close()
-						}
-						else
-						{
-							router.replace('/login' as never)
-						}
-					},
-					2400,
-				)
+				setResubmissionSuccess(true)
 			}
 			else
 			{
@@ -1274,6 +1259,28 @@ export default function RegisterBusinessScreen()
 			ownershipPct, ssmDoc, icDoc,
 		],
 	)
+
+	// Renders the resubmission success view, bypassing the full form, when the submission has completed.
+	if (resubmissionSuccess)
+	{
+		return (
+			<View className="flex-1 bg-[#F9FAFB] items-center justify-center px-6">
+				<View className="w-16 h-16 bg-emerald-100 rounded-2xl items-center justify-center mb-4">
+					<MaterialCommunityIcons
+						name="check-circle-outline"
+						size={32}
+						color="#059669"
+					/>
+				</View>
+				<Text className="text-gray-900 text-xl font-bold text-center mb-2">
+					Resubmission Received
+				</Text>
+				<Text className="text-gray-500 text-sm text-center leading-5">
+					Resubmission received! You may now close the browser.
+				</Text>
+			</View>
+		)
+	}
 
 	return (
 		<View className="flex-1 bg-[#F9FAFB]">
@@ -1578,7 +1585,7 @@ export default function RegisterBusinessScreen()
 				visible={toastVisible}
 				message={
 					resubmissionToken !== null
-						? 'Resubmission received! You may now close the browser.'
+						? 'Resubmission received!'
 						: 'Registration submitted! Redirecting…'
 				}
 			/>

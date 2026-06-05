@@ -19,9 +19,9 @@ export interface IAdminUser extends Document
 
 const AdminUserSchema = new Schema<IAdminUser>(
 	{
-		email:         { type: String,   required: true,  unique: true, lowercase: true, trim: true },
+		email:         { type: String,   required: true, lowercase: true, trim: true },
 		passwordHash:  { type: String,   required: true,  select: false },
-		ssmNumber:     { type: String,   required: true,  unique: true, uppercase: true, trim: true },
+		ssmNumber:     { type: String,   required: true, uppercase: true, trim: true },
 		companyId:     { type: Schema.Types.ObjectId, ref: 'Company', required: true },
 		loginAttempts: { type: Number,   required: true,  default: 0 },
 		lockedUntil:   { type: Date,     default: null },
@@ -37,5 +37,7 @@ AdminUserSchema.methods.comparePassword = async function(candidate: string): Pro
 {
 	return bcrypt.compare(candidate, this.passwordHash as string)
 }
+
+AdminUserSchema.index({ email: 1, companyId: 1 }, { unique: true })
 
 export default mongoose.model<IAdminUser>('AdminUser', AdminUserSchema)

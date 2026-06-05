@@ -8,6 +8,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "ts-node src/scripts/seed_user.ts",
     "seed_company_registration": "ts-node src/scripts/seed_company_registration.ts",
+    "clear_database_data": "ts-node src/scripts/clear_database_data.ts",
     "signin": "ts-node src/scripts/sign_in_user.ts",
     "logout": "ts-node src/scripts/log_out_user.ts"
   },

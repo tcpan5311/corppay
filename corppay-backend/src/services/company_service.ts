@@ -45,6 +45,31 @@ export async function findCompanyBySsm(ssmNumber: string): Promise<ICompany | nu
 	return Company.findOne({ ssmNumber: normalized })
 }
 
+// Returns the company record whose name matches the given value case-insensitively, or null if not found.
+export async function findCompanyByName(name: string): Promise<ICompany | null>
+{
+	return Company.findOne({ name: name.trim() }).collation({ locale: 'en', strength: 2 })
+}
+
+// Returns true when the thrown error is a MongoDB duplicate key violation.
+function isDuplicateKeyError(err: unknown): boolean
+{
+	if (err === null || typeof err !== 'object') return false
+	const record = err as Record<string, unknown>
+	return record['code'] === 11000
+}
+
+// Extracts the first field name from a MongoDB duplicate key error's keyValue map.
+function resolveDuplicateKeyField(err: unknown): string
+{
+	if (err === null || typeof err !== 'object') return ''
+	const record   = err as Record<string, unknown>
+	const keyValue = record['keyValue']
+	if (keyValue === null || typeof keyValue !== 'object') return ''
+	const keys = Object.keys(keyValue as Record<string, unknown>)
+	return keys.length > 0 ? keys[0] : ''
+}
+
 // Validates the payload, resolves duplicate SSM conflicts, and persists a new company record.
 export async function registerCompany(payload: RegisterCompanyPayload): Promise<ICompany>
 {
@@ -76,23 +101,51 @@ export async function registerCompany(payload: RegisterCompanyPayload): Promise<
 		await Company.deleteOne({ _id: existing._id })
 	}
 
+	const existingByName = await Company.findOne({ name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } })
+
+	if (existingByName !== null)
+	{
+		if (existingByName.status === 'approved')
+		{
+			throw new Error('A company with this name is already registered.')
+		}
+		if (existingByName.status === 'pending')
+		{
+			throw new Error('A registration with this company name is already under review.')
+		}
+		await Company.deleteOne({ _id: existingByName._id })
+	}
+
 	const directorData        = createDirector()
 	directorData.icPassport   = director.icPassport
 	directorData.role         = director.role
 	directorData.ownershipPct = director.ownershipPct
 
-	const company = await Company.create({
-		name:              name.trim(),
-		ssmNumber:         normalizedSsm,
-		entityType,
-		registeredAddress: registeredAddress.trim(),
-		director:          directorData,
-		documents,
-		status:            'pending',
-		submittedBy,
-	})
+	try
+	{
+		const company = await Company.create({
+			name:              name.trim(),
+			ssmNumber:         normalizedSsm,
+			entityType,
+			registeredAddress: registeredAddress.trim(),
+			director:          directorData,
+			documents,
+			status:            'pending',
+			submittedBy,
+		})
 
-	return company
+		return company
+	}
+	catch (err)
+	{
+		if (isDuplicateKeyError(err))
+		{
+			const field = resolveDuplicateKeyField(err)
+			if (field === 'ssmNumber') throw new Error('A company with this SSM number is already registered.')
+			if (field === 'name')      throw new Error('A company with this name is already registered.')
+		}
+		throw err
+	}
 }
 
 // Returns all company records associated with the given user ID, sorted by creation date descending.
