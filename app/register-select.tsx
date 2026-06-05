@@ -93,7 +93,7 @@ export default function RegisterSelectScreen()
           {/* JOIN EXISTING BUSINESS CARD */}
           <TouchableOpacity
             className="bg-purple-50 border border-purple-100 rounded-2xl p-5 mb-6"
-            onPress={() => router.push('/register_employee' as any)}
+            onPress={() => router.push('/register-user' as any)}
             activeOpacity={0.85}
           >
             <View className="flex-row items-center mb-3">

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import { authenticate } from '../middleware/auth_middleware'
-import { loginUser, logoutUser, lookupAdminCompanies, refreshAccessToken } from '../services/auth_service'
+import { loginUser, logoutUser, lookupAdminCompanies, lookupUserCompanies, refreshAccessToken } from '../services/auth_service'
 import { validateLoginFields } from '../validation/loginValidation'
 
 const router = Router()
@@ -53,6 +53,33 @@ router.post(
 		catch (error)
 		{
 			console.error('[auth_route] lookup error:', error)
+			return response.status(500).json({ error: 'Lookup failed.' })
+		}
+	}
+)
+
+// Finds all companies an email holds a company-user membership in and returns them for the company picker.
+router.post(
+	'/lookup-user',
+	loginLimiter,
+	async (request: Request, response: Response) =>
+	{
+		const rawBody = request.body as Record<string, unknown>
+		const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim().toLowerCase() : ''
+
+		if (email === '')
+		{
+			return response.status(400).json({ error: 'Email is required.' })
+		}
+
+		try
+		{
+			const result = await lookupUserCompanies(email)
+			return response.json({ found: result.found, companies: result.companies })
+		}
+		catch (error)
+		{
+			console.error('[auth_route] lookup-user error:', error)
 			return response.status(500).json({ error: 'Lookup failed.' })
 		}
 	}

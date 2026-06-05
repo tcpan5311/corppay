@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import jwt from 'jsonwebtoken'
 import AdminUser, { IAdminUser } from '../models/AdminUser'
 import Company from '../models/Company'
+import CompanyUser, { ICompanyUser } from '../models/CompanyUser'
 import User, { IUser } from '../models/User'
 
 dotenv.config()
@@ -115,6 +116,36 @@ export async function lookupAdminCompanies(email: string): Promise<LookupAdminCo
 	return result
 }
 
+// Returns all companies the given email holds a company-user membership in.
+export async function lookupUserCompanies(email: string): Promise<LookupAdminCompaniesResult>
+{
+	const result   = createLookupAdminCompaniesResult()
+	const userList = await CompanyUser.find({ email: email.toLowerCase().trim() }).select('companyId').lean()
+
+	if (userList.length === 0) return result
+
+	const companyIds  = userList.map((u) => u.companyId)
+	const companyList = await Company.find({ _id: { $in: companyIds } }).select('_id name').lean()
+	const nameMap     = new Map<string, string>()
+
+	for (const c of companyList)
+	{
+		nameMap.set(String(c._id), c.name)
+	}
+
+	result.found     = true
+	result.companies = userList.map((member) =>
+	{
+		const opt       = createAdminCompanyOption()
+		const idStr     = String(member.companyId)
+		opt.companyId   = idStr
+		opt.companyName = nameMap.has(idStr) ? nameMap.get(idStr) as string : ''
+		return opt
+	})
+
+	return result
+}
+
 // Creates a fully initialized TokenClaims with empty string defaults.
 function createTokenClaims(): TokenClaims
 {
@@ -162,6 +193,27 @@ function safeUserFromAdminUser(admin: IAdminUser): SafeLoginUser
 	safe.role        = 'admin'
 	safe.isActive    = admin.isActive
 	safe.lastLoginAt = admin.lastLoginAt
+	return safe
+}
+
+// Constructs token claims from a company user membership document.
+function claimsFromCompanyUser(member: ICompanyUser): TokenClaims
+{
+	const claims = createTokenClaims()
+	claims.sub   = String(member._id)
+	claims.role  = 'user'
+	return claims
+}
+
+// Builds a SafeLoginUser from a company user membership document.
+function safeUserFromCompanyUser(member: ICompanyUser): SafeLoginUser
+{
+	const safe       = createSafeLoginUser()
+	safe.id          = String(member._id)
+	safe.email       = member.email
+	safe.role        = 'user'
+	safe.isActive    = member.isActive
+	safe.lastLoginAt = member.lastLoginAt
 	return safe
 }
 
@@ -294,6 +346,57 @@ async function loginAdminUser(email: string, password: string, companyId: string
 	return result
 }
 
+// Authenticates a company user membership against the CompanyUser collection, enforcing lockout policy, and returns a LoginResult.
+async function loginCompanyUser(email: string, password: string, companyId: string): Promise<LoginResult>
+{
+	const genericError = new Error('Invalid credentials')
+	const member = await CompanyUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+
+	if (member === null || !member.isActive)
+	{
+		throw genericError
+	}
+
+	if (member.lockedUntil !== null && member.lockedUntil > new Date())
+	{
+		throw new Error('Account temporarily locked. Try again later.')
+	}
+
+	const valid = await member.comparePassword(password)
+
+	if (!valid)
+	{
+		member.loginAttempts += 1
+		if (member.loginAttempts >= MAX_ATTEMPTS)
+		{
+			member.lockedUntil = new Date(Date.now() + LOCK_DURATION)
+		}
+		await member.save()
+		throw genericError
+	}
+
+	member.loginAttempts = 0
+	member.lockedUntil   = null
+	member.lastLoginAt   = new Date()
+
+	const accessToken  = issueAccessToken(claimsFromCompanyUser(member))
+	const refreshToken = issueRefreshToken()
+
+	member.refreshTokens.push(hashToken(refreshToken))
+	if (member.refreshTokens.length > 5)
+	{
+		member.refreshTokens.shift()
+	}
+
+	await member.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = accessToken
+	result.refreshToken = refreshToken
+	result.user         = safeUserFromCompanyUser(member)
+	return result
+}
+
 // Dispatches the login request to the correct handler based on the requested role.
 export async function loginUser(
 	email:     string,
@@ -303,19 +406,43 @@ export async function loginUser(
 ): Promise<LoginResult>
 {
 	if (role === 'admin') return loginAdminUser(email, password, companyId)
+	if (companyId !== '')  return loginCompanyUser(email, password, companyId)
 	return loginRegularUser(email, password)
 }
 
 // ─── Refresh ──────────────────────────────────────────────────────────────────
 
-// Rotates the admin refresh token and returns a new LoginResult.
+// Rotates the company user refresh token and returns a new LoginResult.
+async function refreshCompanyUserAccessToken(tokenHash: string): Promise<LoginResult>
+{
+	const member = await CompanyUser.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+
+	if (member === null)
+	{
+		throw new Error('Refresh token reuse detected or invalid token')
+	}
+
+	member.refreshTokens = member.refreshTokens.filter(t => t !== tokenHash)
+
+	const newRefreshToken = issueRefreshToken()
+	member.refreshTokens.push(hashToken(newRefreshToken))
+	await member.save()
+
+	const result        = createLoginResult()
+	result.accessToken  = issueAccessToken(claimsFromCompanyUser(member))
+	result.refreshToken = newRefreshToken
+	result.user         = safeUserFromCompanyUser(member)
+	return result
+}
+
+// Rotates the admin refresh token and returns a new LoginResult, falling back to the company user collection.
 async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
 {
 	const admin = await AdminUser.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
 
 	if (admin === null)
 	{
-		throw new Error('Refresh token reuse detected or invalid token')
+		return refreshCompanyUserAccessToken(tokenHash)
 	}
 
 	admin.refreshTokens = admin.refreshTokens.filter(t => t !== tokenHash)
@@ -331,7 +458,7 @@ async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
 	return result
 }
 
-// Rotates the stored refresh token and returns a new access token, checking both User and AdminUser collections.
+// Rotates the stored refresh token and returns a new access token, checking the User, AdminUser, and CompanyUser collections.
 export async function refreshAccessToken(rawRefreshToken: string): Promise<LoginResult>
 {
 	const tokenHash = hashToken(rawRefreshToken)
@@ -365,6 +492,11 @@ export async function logoutUser(userId: string, rawRefreshToken: string): Promi
 
 	if (userResult === null)
 	{
-		await AdminUser.findByIdAndUpdate(userId, { $pull: { refreshTokens: tokenHash } })
+		const adminResult = await AdminUser.findByIdAndUpdate(userId, { $pull: { refreshTokens: tokenHash } })
+
+		if (adminResult === null)
+		{
+			await CompanyUser.findByIdAndUpdate(userId, { $pull: { refreshTokens: tokenHash } })
+		}
 	}
 }

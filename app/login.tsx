@@ -70,6 +70,27 @@ async function fetchAdminCompanyLookup(email: string): Promise<LookupCompaniesRe
   return result
 }
 
+// Calls the user lookup endpoint and returns the list of companies the given user email holds a membership in.
+async function fetchUserCompanyLookup(email: string): Promise<LookupCompaniesResponse>
+{
+	const result   = createLookupCompaniesResponse()
+	const response = await fetch(`${API_BASE}/auth/lookup-user`, {
+		method:  'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body:    JSON.stringify({ email }),
+	})
+	const data = await response.json() as Record<string, unknown>
+
+	if (!response.ok) return result
+
+	const rawList = data['companies']
+	if (!Array.isArray(rawList)) return result
+
+	result.found     = true
+	result.companies = rawList as AdminCompanyOption[]
+	return result
+}
+
 export default function LoginScreen()
 {
   const { login }                         = useAuth()
@@ -101,7 +122,7 @@ export default function LoginScreen()
   const isPasswordReady = (
     passwordValidation === null &&
     !isSubmitting &&
-    (activeTab !== 'admin' || selectedCompanyId !== '')
+    selectedCompanyId !== ''
   )
 
   async function handleLogin(): Promise<void>
@@ -170,22 +191,22 @@ export default function LoginScreen()
     setEmailTouched(true)
     if (validateLoginEmail(email) !== null) return
 
-    if (activeTab === 'user')
-    {
-      setLoginPhase('password')
-      return
-    }
-
     setIsLookingUp(true)
     setLookupError('')
 
     try
     {
-      const result = await fetchAdminCompanyLookup(email)
+      const result = activeTab === 'admin'
+        ? await fetchAdminCompanyLookup(email)
+        : await fetchUserCompanyLookup(email)
 
       if (!result.found || result.companies.length === 0)
       {
-        setLookupError('No admin account found for this email address.')
+        setLookupError(
+          activeTab === 'admin'
+            ? 'No admin account found for this email address.'
+            : 'No user account found for this email address.'
+        )
         return
       }
 
@@ -339,7 +360,7 @@ export default function LoginScreen()
               </>
             )}
 
-            {/* ── COMPANY SELECT PHASE (admin only) ── */}
+            {/* ── COMPANY SELECT PHASE (user and admin) ── */}
             {loginPhase === 'company_select' && (
               <>
                 <View className="mb-5 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl flex-row items-center">
@@ -402,7 +423,7 @@ export default function LoginScreen()
                   <Text className="text-gray-600 text-sm flex-1" numberOfLines={1}>{email}</Text>
                 </View>
 
-                {activeTab === 'admin' && selectedCompanyName !== '' && (
+                {selectedCompanyName !== '' && (
                   <View className="mb-4 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl flex-row items-center">
                     <MaterialCommunityIcons name="office-building-outline" size={16} color="#2563EB" style={{ marginRight: 8 }} />
                     <Text className="text-blue-700 text-sm flex-1 font-medium" numberOfLines={1}>{selectedCompanyName}</Text>
@@ -469,7 +490,7 @@ export default function LoginScreen()
 
                 <TouchableOpacity className="items-center py-2" onPress={() =>
                 {
-                  setLoginPhase(activeTab === 'admin' && companies.length > 1 ? 'company_select' : 'email')
+                  setLoginPhase(companies.length > 1 ? 'company_select' : 'email')
                   setSubmitError('')
                   setPassword('')
                   setPasswordTouched(false)

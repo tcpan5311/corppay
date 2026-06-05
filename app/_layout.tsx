@@ -6,7 +6,7 @@ import React, { useEffect } from 'react'
 import { ActivityIndicator, View } from 'react-native'
 import { Provider as PaperProvider } from 'react-native-paper'
 
-const PUBLIC_ROUTES = ['login', 'register-select', 'register-business', 'admin', 'resubmit']
+const PUBLIC_ROUTES = ['login', 'register-select', 'register-business', 'admin', 'resubmit', 'register-user', 'user-resubmit', 'user']
 
 // Returns true when the first segment matches a known public route.
 function isPublicRoute(segments: string[]): boolean
