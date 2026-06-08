@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import fs from 'fs'
 import mongoose from 'mongoose'
 import path from 'path'
@@ -39,8 +40,17 @@ function extractBodyString(body: Record<string, unknown>, key: string): string
 
 const router = Router()
 
+// Throttles TOTP verification to defeat brute-forcing of the 6-digit admin code.
+const totpLimiter = rateLimit({
+	windowMs:        15 * 60 * 1000,
+	max:             5,
+	message:         { valid: false, error: 'Too many attempts. Try again in 15 minutes.' },
+	standardHeaders: true,
+	legacyHeaders:   false,
+})
+
 // Validates input format and TOTP code correctness, then returns a signed session JWT on success.
-router.post('/validate-token', async (req: Request, res: Response) =>
+router.post('/validate-token', totpLimiter, async (req: Request, res: Response) =>
 {
 	const body       = req.body as Record<string, unknown>
 	const code       = extractBodyString(body, 'code')
@@ -73,7 +83,8 @@ router.post('/validate-token', async (req: Request, res: Response) =>
 // Returns a QR code PNG for TOTP authenticator enrollment, gated by the raw ADMIN_REVIEW_TOKEN as a setup key.
 router.get('/setup', async (req: Request, res: Response) =>
 {
-	const setupKey = typeof req.query['setup_key'] === 'string' ? req.query['setup_key'] : ''
+	const headerKey = req.headers['x-setup-key']
+	const setupKey  = typeof headerKey === 'string' ? headerKey : ''
 
 	if (!validateAdminSetupKey(setupKey))
 	{
@@ -126,7 +137,7 @@ router.get('/file/:filename', adminTokenMiddleware, (req: Request<{ filename: st
 
 	if (!fs.existsSync(filePath))
 	{
-		return res.status(404).json({ error: 'File not found.', message: uploadDir })
+		return res.status(404).json({ error: 'File not found.' })
 	}
 
 	return res.sendFile(filePath)
@@ -149,8 +160,9 @@ router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id
 			return res.status(409).json({ error: 'Company is already approved.' })
 		}
 
-		company.status     = 'approved'
-		company.reviewedAt = new Date()
+		company.status         = 'approved'
+		company.reviewedAt     = new Date()
+		company.reviewedByLabel = 'platform-admin'
 		await company.save()
 
 		const companyObjectId = company._id as mongoose.Types.ObjectId

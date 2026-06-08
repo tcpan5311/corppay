@@ -5,19 +5,19 @@ import multer, { FileFilterCallback } from 'multer'
 import path from 'path'
 import { companyRateLimit } from '../middleware/company_middleware'
 import Company, { IUploadedDocument } from '../models/Company'
-import { findApplicationByEmail, getApplicationById, getApplicationsByUser } from '../services/user_application_service'
+import { findApplicationByEmail } from '../services/user_application_service'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/user_confirm_email_service'
 import {
-    createSavePendingUserRegistrationPayload,
-    findActivePendingByEmail,
-    savePendingUserRegistration,
-    verifyEmailToken,
+	createSavePendingUserRegistrationPayload,
+	findActivePendingByEmail,
+	savePendingUserRegistration,
+	verifyEmailToken,
 } from '../services/user_pending_registration_service'
 import {
-    FormErrors,
-    UploadFileValidatable,
-    hasErrors,
-    validateAllFields,
+	FormErrors,
+	UploadFileValidatable,
+	hasErrors,
+	validateAllFields,
 } from '../validation/registerUserValidation'
 
 // ─── Body Extraction ──────────────────────────────────────────────────────────
@@ -349,52 +349,25 @@ router.get('/available-companies', async (_req: Request, res: Response) =>
 	}
 })
 
-// Returns all KYC applications submitted under the given email query parameter.
-router.get('/mine', async (req: Request, res: Response) =>
+// Escapes HTML-significant characters to prevent markup injection in the rendered page.
+function escapeHtml(value: string): string
 {
-	const email = typeof req.query['email'] === 'string' ? req.query['email'].trim().toLowerCase() : 'anonymous'
-
-	try
-	{
-		const applications = await getApplicationsByUser(email)
-		return res.json({ applications })
-	}
-	catch (err)
-	{
-		console.error('[user_routes] getApplicationsByUser error:', err)
-		return res.status(500).json({ error: 'Failed to retrieve applications.' })
-	}
-})
-
-// Returns the application document matching the given ID, or a 404 if not found.
-router.get('/:id', async (req: Request<{ id: string }>, res: Response) =>
-{
-	try
-	{
-		const application = await getApplicationById(req.params.id)
-
-		if (!application)
-		{
-			return res.status(404).json({ error: 'Application not found.' })
-		}
-
-		return res.json({ application })
-	}
-	catch (err)
-	{
-		console.error('[user_routes] getApplicationById error:', err)
-		return res.status(500).json({ error: 'Failed to retrieve application.' })
-	}
-})
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;')
+}
 
 // Renders a self-contained HTML confirmation page reflecting verification success or failure.
 function renderVerifyPage(success: boolean, errorMessage: string): string
 {
 	const title   = success ? 'Email Verified' : 'Verification Failed'
 	const heading = success ? '✅ Application Submitted' : '❌ Verification Failed'
-	const body    = success
+	const body = success
 		? 'Your email has been verified and your application has been submitted for review. You will be notified once it is approved.'
-		: errorMessage
+		: escapeHtml(errorMessage)
 
 	return `<!DOCTYPE html>
 		<html lang="en">

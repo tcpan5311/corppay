@@ -1,17 +1,11 @@
 import bcrypt from 'bcrypt'
-import crypto from 'crypto'
 import mongoose from 'mongoose'
 
 import CompanyUser from '../models/CompanyUser'
 import UserOnboardingToken, { buildUserOnboardingTokenDoc } from '../models/UserOnboardingToken'
+import { generateSecureToken, hashToken } from '../utils/token_utils'
 
 const BCRYPT_ROUNDS = 12
-
-// Generates a cryptographically secure 64-character hex token.
-function generateSecureToken(): string
-{
-	return crypto.randomBytes(32).toString('hex')
-}
 
 export type CreateUserOnboardingTokenResult =
 {
@@ -34,12 +28,12 @@ export async function createUserOnboardingToken(
 	department:    string,
 ): Promise<CreateUserOnboardingTokenResult>
 {
-	const token = generateSecureToken()
-	const doc   = buildUserOnboardingTokenDoc(token, email, applicationId, companyId, role, department)
-	const saved = await UserOnboardingToken.create(doc)
+	const rawToken = generateSecureToken()
+	const doc      = buildUserOnboardingTokenDoc(hashToken(rawToken), email, applicationId, companyId, role, department)
+	const saved    = await UserOnboardingToken.create(doc)
 
 	const result     = createUserOnboardingTokenResult()
-	result.token     = saved.token
+	result.token     = rawToken
 	result.expiresAt = saved.expiresAt
 	return result
 }
@@ -63,7 +57,7 @@ export function createUserOnboardingTokenVerifyResult(): UserOnboardingTokenVeri
 export async function verifyUserOnboardingToken(token: string): Promise<UserOnboardingTokenVerifyResult>
 {
 	const result  = createUserOnboardingTokenVerifyResult()
-	const pending = await UserOnboardingToken.findOne({ token })
+	const pending = await UserOnboardingToken.findOne({ token: hashToken(token) })
 
 	if (pending === null)
 	{
@@ -109,23 +103,15 @@ export async function completeUserOnboarding(
 ): Promise<CompleteUserOnboardingResult>
 {
 	const result  = createCompleteUserOnboardingResult()
-	const pending = await UserOnboardingToken.findOne({ token })
+	const pending = await UserOnboardingToken.findOneAndUpdate(
+		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
+		{ status: 'used' },
+		{ new: false },
+	)
 
 	if (pending === null)
 	{
-		result.reason = 'Onboarding link is invalid.'
-		return result
-	}
-
-	if (pending.status === 'used')
-	{
-		result.reason = 'This onboarding link has already been used.'
-		return result
-	}
-
-	if (new Date() > pending.expiresAt)
-	{
-		result.reason = 'This onboarding link has expired.'
+		result.reason = 'Onboarding link is invalid, expired, or already used.'
 		return result
 	}
 
@@ -150,8 +136,6 @@ export async function completeUserOnboarding(
 		role:          pending.role,
 		department:    pending.department,
 	})
-
-	await UserOnboardingToken.updateOne({ _id: pending._id }, { status: 'used' })
 
 	result.success = true
 	return result

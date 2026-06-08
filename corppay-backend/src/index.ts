@@ -15,10 +15,52 @@ import userRoutes from './routes/user_route'
 
 dotenv.config()
 
+dotenv.config()
+
+// Fail fast if any required secret is missing — never start with insecure defaults.
+const REQUIRED_ENV = [
+	'JWT_ACCESS_SECRET',
+	'JWT_REFRESH_SECRET',
+	'ADMIN_REVIEW_TOKEN',
+	'ADMIN_SESSION_SECRET',
+	'ADMIN_TOTP_SECRET',
+	'MONGODB_URI',
+]
+for (const key of REQUIRED_ENV)
+{
+	const value = process.env[key]
+	if (value === undefined || value.trim() === '')
+	{
+		console.error(`❌ Missing required environment variable: ${key}`)
+		process.exit(1)
+	}
+}
+
+// Comma-separated allowlist of permitted web origins.
+const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+	.split(',')
+	.map((o) => o.trim())
+	.filter((o) => o !== '')
+
 const app = express()
 
+// Trust the first proxy hop so req.ip reflects the real client behind a load balancer/CDN.
+app.set('trust proxy', 1)
+
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+	origin: (origin, callback) =>
+	{
+		// Allow non-browser clients (no Origin header) and any explicitly allow-listed origin.
+		if (origin === undefined || ALLOWED_ORIGINS.includes(origin))
+		{
+			callback(null, true)
+			return
+		}
+		callback(new Error('Origin not allowed by CORS policy.'))
+	},
+}))
+
 app.use(express.json())
 app.use('/auth', authRoutes)
 app.use('/companies', companyRoutes)

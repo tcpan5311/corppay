@@ -1,7 +1,6 @@
-import crypto from 'crypto'
-
 import { createDirector, DirectorRole, EntityType, IUploadedDocument } from '../models/Company'
 import PendingRegistration, { buildPendingRegistrationDoc, IPendingRegistration } from '../models/PendingRegistration'
+import { generateSecureToken, hashToken } from '../utils/token_utils'
 import { registerCompany } from './company_service'
 
 export type SavePendingRegistrationPayload =
@@ -45,12 +44,6 @@ function createSavePendingResult(): SavePendingResult
 	return { token: '', expiresAt: new Date(0) }
 }
 
-// Generates a cryptographically secure 64-character hex token.
-function generateSecureToken(): string
-{
-	return crypto.randomBytes(32).toString('hex')
-}
-
 // Returns an active (non-expired, non-verified) pending registration for the given SSM number, or null if none exists.
 export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendingRegistration | null>
 {
@@ -65,25 +58,24 @@ export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendin
 // Returns the active pending registration whose name matches the given value case-insensitively, or null if absent.
 export async function findActivePendingByName(name: string): Promise<IPendingRegistration | null>
 {
-	const trimmed = name.trim()
 	return PendingRegistration.findOne({
-		name:      { $regex: new RegExp(`^${trimmed}$`, 'i') },
+		name:      name.trim(),
 		status:    'pending',
 		expiresAt: { $gt: new Date() },
-	})
+	}).collation({ locale: 'en', strength: 2 })
 }
 
 // Persists a pending registration with a fresh token and 15-minute expiry, returning the token details.
 export async function savePendingRegistration(payload: SavePendingRegistrationPayload): Promise<SavePendingResult>
 {
-	const token               = generateSecureToken()
+	const rawToken            = generateSecureToken()
 	const director            = createDirector()
 	director.icPassport       = payload.directorIcPassport
 	director.role             = payload.directorRole as DirectorRole
 	director.ownershipPct     = payload.directorOwnershipPct
 
 	const doc = buildPendingRegistrationDoc(
-		token,
+		hashToken(rawToken),
 		payload.name,
 		payload.ssmNumber,
 		payload.entityType as EntityType,
@@ -95,7 +87,7 @@ export async function savePendingRegistration(payload: SavePendingRegistrationPa
 
 	const created    = await PendingRegistration.create(doc)
 	const result     = createSavePendingResult()
-	result.token     = created.token
+	result.token     = rawToken
 	result.expiresAt = created.expiresAt
 	return result
 }
@@ -115,24 +107,22 @@ export function createVerifyTokenResult(): VerifyTokenResult
 // Validates the token, promotes the pending registration to a confirmed company record, and marks the token consumed.
 export async function verifyEmailToken(token: string): Promise<VerifyTokenResult>
 {
-	const result  = createVerifyTokenResult()
-	const pending = await PendingRegistration.findOne({ token })
+	const result    = createVerifyTokenResult()
+	const tokenHash = hashToken(token)
+
+	// Atomically claim the pending registration so it cannot be verified twice concurrently.
+	const pending = await PendingRegistration.findOneAndUpdate(
+		{ token: tokenHash, status: 'pending', expiresAt: { $gt: new Date() } },
+		{ status: 'verified' },
+		{ new: false },
+	)
 
 	if (pending === null)
 	{
-		result.errorMessage = 'Verification link is invalid or has already been used.'
-		return result
-	}
-
-	if (pending.status === 'verified')
-	{
-		result.errorMessage = 'This verification link has already been used.'
-		return result
-	}
-
-	if (new Date() > pending.expiresAt)
-	{
-		result.errorMessage = 'Verification link has expired. Please submit the registration form again.'
+		const existing = await PendingRegistration.findOne({ token: tokenHash })
+		if (existing === null)                   result.errorMessage = 'Verification link is invalid or has already been used.'
+		else if (existing.status === 'verified') result.errorMessage = 'This verification link has already been used.'
+		else                                     result.errorMessage = 'Verification link has expired. Please submit the registration form again.'
 		return result
 	}
 
@@ -149,8 +139,6 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 		documents:   pending.documents,
 		submittedBy: pending.submittedBy,
 	})
-
-	await PendingRegistration.updateOne({ _id: pending._id }, { status: 'verified' })
 
 	result.success = true
 	return result

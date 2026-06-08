@@ -23,10 +23,10 @@ function createSessionVerificationResult(): SessionVerificationResult
 	return { valid: false, reason: '' }
 }
 
-// Reads the JWT signing key from the ADMIN_REVIEW_TOKEN environment variable.
+// Reads the dedicated admin-session JWT signing key (distinct from the /setup key).
 function resolveJwtSecret(): string
 {
-	const secret = process.env.ADMIN_REVIEW_TOKEN
+	const secret = process.env.ADMIN_SESSION_SECRET
 	return typeof secret === 'string' ? secret.trim() : ''
 }
 

@@ -87,7 +87,24 @@ export async function registerUserApplication(payload: RegisterUserApplicationPa
 		{
 			throw new Error('An application for this email is already under review.')
 		}
-		await UserApplication.deleteOne({ _id: existing._id })
+
+		// Rejected / awaiting_resubmit: update in place (preserve _id, history, referencing tokens).
+		existing.fullName        = payload.fullName.trim()
+		existing.dateOfBirth     = payload.dateOfBirth.trim()
+		existing.nationality     = payload.nationality.trim()
+		existing.gender          = payload.gender
+		existing.mobileNumber    = payload.mobileNumber.trim()
+		existing.fullAddress     = payload.fullAddress.trim()
+		existing.documentType    = payload.documentType
+		existing.targetCompanyId = new mongoose.Types.ObjectId(payload.targetCompanyId)
+		existing.documents       = payload.documents
+		existing.status          = 'pending'
+		existing.reviewNote      = null
+		existing.reviewedAt      = null
+		existing.reviewedBy      = null
+		existing.submittedBy     = payload.submittedBy
+		await existing.save()
+		return existing
 	}
 
 	try

@@ -10,10 +10,10 @@ import {
 	validateAllFields,
 } from '../../src/validation/registerBusinessValidation'
 import { companyRateLimit } from '../middleware/company_middleware'
-import { EntityType, IUploadedDocument } from '../models/Company'
+import { IUploadedDocument } from '../models/Company'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/admin_confirm_email_service'
 import { createSavePendingRegistrationPayload, findActivePendingByName, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
-import { findCompanyByName, findCompanyBySsm, getCompaniesByUser, getCompanyById, registerCompany } from '../services/company_service'
+import { findCompanyByName, findCompanyBySsm } from '../services/company_service'
 
 // ─── Body Extraction ──────────────────────────────────────────────────────────
 
@@ -281,86 +281,6 @@ function resolveDirectorRole(body: Record<string, unknown>): string
 
 const router = Router()
 
-// Validates all registration fields and uploaded documents, then persists the company record directly.
-router.post('/register', companyRateLimit, uploadFields, async (req: Request, res: Response) =>
-{
-	const files = req.files as Record<string, Express.Multer.File[]> | null
-	const body  = req.body  as Record<string, unknown>
-
-	const values = buildRegistrationFieldValues(body, files)
-	const errors = validateAllFields(
-		values.companyName,
-		values.ssmNumber,
-		values.entityType,
-		values.registeredAddress,
-		values.registeredEmail,
-		values.icPassport,
-		values.directorRole,
-		values.ownershipPct,
-		values.ssmDoc,
-		values.icDoc,
-	)
-
-	if (hasErrors(errors))
-	{
-		return res.status(400).json({
-			error:  'Validation failed.',
-			errors: collectErrorMessages(errors),
-		})
-	}
-	const resolved = resolveUploadedFiles(files)
-
-	const ssmFile    = resolved.ssmFile as Express.Multer.File
-	const icFile     = resolved.icFile  as Express.Multer.File
-	const documents  = buildDocuments(ssmFile, icFile)
-	const ownershipPct       = resolveOwnershipPct(body)
-	const directorIcPassport = resolveDirectorIcPassport(body)
-	const directorRole       = resolveDirectorRole(body)
-	const submittedByRaw     = extractBodyString(body, 'submittedBy')
-	const submittedBy        = submittedByRaw !== '' ? submittedByRaw : 'anonymous'
-
-	try
-	{
-		const company = await registerCompany({
-			name:              extractBodyString(body, 'name'),
-			ssmNumber:         extractBodyString(body, 'ssmNumber'),
-			entityType:        extractBodyString(body, 'entityType') as EntityType,
-			registeredAddress: extractBodyString(body, 'registeredAddress'),
-			director: {
-				icPassport:   directorIcPassport,
-				role:         directorRole as 'director' | 'owner',
-				ownershipPct,
-			},
-			documents,
-			submittedBy,
-		})
-
-		return res.status(201).json({
-			message: 'Company registration submitted successfully.',
-			company: {
-				id:         company._id,
-				name:       company.name,
-				ssmNumber:  company.ssmNumber,
-				entityType: company.entityType,
-				status:     company.status,
-				createdAt:  company.createdAt,
-			},
-		})
-	}
-	catch (err)
-	{
-		const message = (err as Error).message !== '' ? (err as Error).message : 'Registration failed. Please try again.'
-
-		if (message.includes('already'))
-		{
-			return res.status(409).json({ error: message })
-		}
-
-		console.error('[company_routes] registerCompany error:', err)
-		return res.status(500).json({ error: message })
-	}
-})
-
 // Validates all registration fields, checks for SSM conflicts, saves a pending registration, and dispatches a verification email.
 router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Request, res: Response) =>
 {
@@ -507,41 +427,16 @@ router.get('/verify-email', async (req: Request, res: Response) =>
 	}
 })
 
-// Returns all company registrations submitted by the anonymous user.
-router.get('/mine', async (_req: Request, res: Response) =>
+// Escapes HTML-significant characters to prevent markup injection in the rendered page.
+function escapeHtml(value: string): string
 {
-	try
-	{
-		const companies = await getCompaniesByUser('anonymous')
-		return res.json({ companies })
-	}
-	catch (err)
-	{
-		console.error('[company_routes] getCompaniesByUser error:', err)
-		return res.status(500).json({ error: 'Failed to retrieve companies.' })
-	}
-})
-
-// Returns the company document matching the given ID, or a 404 if not found.
-router.get('/:id', async (req: Request<{ id: string }>, res: Response) =>
-{
-	try
-	{
-		const company = await getCompanyById(req.params.id)
-
-		if (!company)
-		{
-			return res.status(404).json({ error: 'Company not found.' })
-		}
-
-		return res.json({ company })
-	}
-	catch (err)
-	{
-		console.error('[company_routes] getCompanyById error:', err)
-		return res.status(500).json({ error: 'Failed to retrieve company.' })
-	}
-})
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;')
+}
 
 // Renders a self-contained HTML confirmation page reflecting verification success or failure.
 function renderVerifyPage(success: boolean, errorMessage: string): string
@@ -550,7 +445,7 @@ function renderVerifyPage(success: boolean, errorMessage: string): string
 	const heading = success ? '✅ Registration Confirmed' : '❌ Verification Failed'
 	const body    = success
 		? 'Your email has been verified and your business registration has been submitted for review. You will be notified once it is approved.'
-		: errorMessage
+		: escapeHtml(errorMessage)
 
 	return `<!DOCTYPE html>
 		<html lang="en">

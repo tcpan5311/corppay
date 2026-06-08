@@ -1,9 +1,9 @@
-import crypto from 'crypto'
 import mongoose from 'mongoose'
 
 import { IUploadedDocument } from '../models/Company'
 import PendingUserRegistration, { buildPendingUserRegistrationDoc, IPendingUserRegistration } from '../models/PendingUserRegistration'
 import { UserDocumentType, UserGender } from '../models/UserApplication'
+import { generateSecureToken, hashToken } from '../utils/token_utils'
 import { createRegisterUserApplicationPayload, registerUserApplication } from './user_application_service'
 
 export type SavePendingUserRegistrationPayload =
@@ -49,12 +49,6 @@ type SavePendingResult =
 function createSavePendingResult(): SavePendingResult
 {
 	return { token: '', expiresAt: new Date(0) }
-}
-
-// Generates a cryptographically secure 64-character hex token.
-function generateSecureToken(): string
-{
-	return crypto.randomBytes(32).toString('hex')
 }
 
 // Returns an active (non-expired, non-verified) pending registration for the given email, or null if none exists.
@@ -111,23 +105,19 @@ export function createVerifyTokenResult(): VerifyTokenResult
 export async function verifyEmailToken(token: string): Promise<VerifyTokenResult>
 {
 	const result  = createVerifyTokenResult()
-	const pending = await PendingUserRegistration.findOne({ token })
+	const tokenHash = hashToken(token)
+	const pending = await PendingUserRegistration.findOneAndUpdate(
+		{ token: tokenHash, status: 'pending', expiresAt: { $gt: new Date() } },
+		{ status: 'verified' },
+		{ new: false },
+	)
 
 	if (pending === null)
 	{
-		result.errorMessage = 'Verification link is invalid or has already been used.'
-		return result
-	}
-
-	if (pending.status === 'verified')
-	{
-		result.errorMessage = 'This verification link has already been used.'
-		return result
-	}
-
-	if (new Date() > pending.expiresAt)
-	{
-		result.errorMessage = 'Verification link has expired. Please submit the registration form again.'
+		const existing = await PendingUserRegistration.findOne({ token: tokenHash })
+		if (existing === null)                   result.errorMessage = 'Verification link is invalid or has already been used.'
+		else if (existing.status === 'verified') result.errorMessage = 'This verification link has already been used.'
+		else                                     result.errorMessage = 'Verification link has expired. Please submit the registration form again.'
 		return result
 	}
 
@@ -145,9 +135,6 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 	payload.submittedBy  = pending.submittedBy
 
 	await registerUserApplication(payload)
-
-	await PendingUserRegistration.updateOne({ _id: pending._id }, { status: 'verified' })
-
 	result.success = true
 	return result
 }

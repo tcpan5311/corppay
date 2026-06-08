@@ -85,8 +85,13 @@ export async function registerCompany(payload: RegisterCompanyPayload): Promise<
 	const director          = payload.director
 	const documents         = payload.documents
 	const submittedBy       = payload.submittedBy
-	const normalizedSsm     = ssmNumber.trim().toUpperCase()
-	const existing          = await Company.findOne({ ssmNumber: normalizedSsm })
+	const directorData        = createDirector()
+	directorData.icPassport   = director.icPassport
+	directorData.role         = director.role
+	directorData.ownershipPct = director.ownershipPct
+
+	const normalizedSsm = ssmNumber.trim().toUpperCase()
+	const existing      = await Company.findOne({ ssmNumber: normalizedSsm })
 
 	if (existing !== null)
 	{
@@ -98,28 +103,39 @@ export async function registerCompany(payload: RegisterCompanyPayload): Promise<
 		{
 			throw new Error('A registration for this SSM number is already under review.')
 		}
-		await Company.deleteOne({ _id: existing._id })
-	}
 
-	const existingByName = await Company.findOne({ name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } })
-
-	if (existingByName !== null)
-	{
-		if (existingByName.status === 'approved')
+		// A rejected / awaiting_resubmit record exists for this SSM. Make sure the requested
+		// name is not held by a DIFFERENT company, then update this record in place so its
+		// _id, history, and any referencing tokens remain valid (no destructive delete).
+		const nameClash = await Company.findOne({ name: name.trim() }).collation({ locale: 'en', strength: 2 })
+		if (nameClash !== null && String(nameClash._id) !== String(existing._id))
 		{
 			throw new Error('A company with this name is already registered.')
 		}
+
+		existing.name              = name.trim()
+		existing.entityType        = entityType
+		existing.registeredAddress = registeredAddress.trim()
+		existing.director          = directorData
+		existing.documents         = documents
+		existing.status            = 'pending'
+		existing.reviewNote        = null
+		existing.reviewedAt        = null
+		existing.reviewedBy        = null
+		await existing.save()
+		return existing
+	}
+
+	// No SSM match: ensure the name isn't taken (collation equality, not regex), then create.
+	const existingByName = await Company.findOne({ name: name.trim() }).collation({ locale: 'en', strength: 2 })
+	if (existingByName !== null)
+	{
 		if (existingByName.status === 'pending')
 		{
 			throw new Error('A registration with this company name is already under review.')
 		}
-		await Company.deleteOne({ _id: existingByName._id })
+		throw new Error('A company with this name is already registered.')
 	}
-
-	const directorData        = createDirector()
-	directorData.icPassport   = director.icPassport
-	directorData.role         = director.role
-	directorData.ownershipPct = director.ownershipPct
 
 	try
 	{

@@ -18,10 +18,15 @@ declare global
 	}
 }
 
-// Resolves the JWT access secret from the environment, returning an empty string if absent.
+// Resolves the JWT access secret from the environment, throwing if it is not configured.
 function resolveJwtSecret(): string
 {
-	return process.env.JWT_ACCESS_SECRET !== undefined ? process.env.JWT_ACCESS_SECRET : ''
+	const secret = process.env.JWT_ACCESS_SECRET
+	if (secret === undefined || secret.trim() === '')
+	{
+		throw new Error('JWT_ACCESS_SECRET is not configured.')
+	}
+	return secret
 }
 
 // Narrows a raw decoded JWT value to an AuthenticatedUser, returning null if the shape is invalid.

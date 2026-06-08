@@ -1,17 +1,11 @@
 import bcrypt from 'bcrypt'
-import crypto from 'crypto'
 import mongoose from 'mongoose'
+import { generateSecureToken, hashToken } from '../utils/token_utils'
 
 import AdminUser from '../models/AdminUser'
 import OnboardingToken, { buildOnboardingTokenDoc } from '../models/OnboardingToken'
 
 const BCRYPT_ROUNDS = 12
-
-// Generates a cryptographically secure 64-character hex token.
-function generateSecureToken(): string
-{
-	return crypto.randomBytes(32).toString('hex')
-}
 
 export type CreateOnboardingTokenResult =
 {
@@ -32,11 +26,11 @@ export async function createOnboardingToken(
 	companyId: mongoose.Types.ObjectId,
 ): Promise<CreateOnboardingTokenResult>
 {
-	const token  = generateSecureToken()
-	const doc    = buildOnboardingTokenDoc(token, email, ssmNumber, companyId)
-	const saved  = await OnboardingToken.create(doc)
+	const rawToken = generateSecureToken()
+	const doc      = buildOnboardingTokenDoc(hashToken(rawToken), email, ssmNumber, companyId)
+	const saved    = await OnboardingToken.create(doc)
 	const result     = createOnboardingTokenResult()
-	result.token     = saved.token
+	result.token     = rawToken
 	result.expiresAt = saved.expiresAt
 	return result
 }
@@ -59,7 +53,7 @@ export function createOnboardingTokenVerifyResult(): OnboardingTokenVerifyResult
 export async function verifyOnboardingToken(token: string): Promise<OnboardingTokenVerifyResult>
 {
 	const result  = createOnboardingTokenVerifyResult()
-	const pending = await OnboardingToken.findOne({ token })
+	const pending = await OnboardingToken.findOne({ token: hashToken(token) })
 
 	if (pending === null)
 	{
@@ -104,31 +98,21 @@ export async function completeOnboarding(
 ): Promise<CompleteOnboardingResult>
 {
 	const result  = createCompleteOnboardingResult()
-	const pending = await OnboardingToken.findOne({ token })
+
+	// Atomically claim the token (pending + unexpired) so it can only be consumed once.
+	const pending = await OnboardingToken.findOneAndUpdate(
+		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
+		{ status: 'used' },
+		{ new: false },
+	)
 
 	if (pending === null)
 	{
-		result.reason = 'Onboarding link is invalid.'
+		result.reason = 'Onboarding link is invalid, expired, or already used.'
 		return result
 	}
 
-	if (pending.status === 'used')
-	{
-		result.reason = 'This onboarding link has already been used.'
-		return result
-	}
-
-	if (new Date() > pending.expiresAt)
-	{
-		result.reason = 'This onboarding link has expired.'
-		return result
-	}
-
-	const existingAdmin = await AdminUser.findOne({
-		email:     pending.email.toLowerCase(),
-		companyId: pending.companyId,
-	})
-
+	const existingAdmin = await AdminUser.findOne({ email: pending.email.toLowerCase(), companyId: pending.companyId })
 	if (existingAdmin !== null)
 	{
 		result.reason = 'An admin account for this email already exists.'
@@ -143,8 +127,6 @@ export async function completeOnboarding(
 		ssmNumber:    pending.ssmNumber.trim().toUpperCase(),
 		companyId:    pending.companyId,
 	})
-
-	await OnboardingToken.updateOne({ _id: pending._id }, { status: 'used' })
 
 	result.success = true
 	return result
