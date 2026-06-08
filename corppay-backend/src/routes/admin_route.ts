@@ -214,6 +214,7 @@ router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id:
 		company.status     = 'rejected'
 		company.reviewedAt = new Date()
 		company.reviewNote = reviewNote !== '' ? reviewNote : null
+		company.reviewedByLabel = 'platform-admin'
 		await company.save()
 
 		const emailParams        = createSendRejectionEmailParams()
@@ -254,6 +255,7 @@ router.post('/companies/:id/reenable', requireAdminRole, async (req: Request<{ i
 		company.status            = 'awaiting_resubmit'
 		company.reviewNote        = null
 		company.resubmissionCount = company.resubmissionCount + 1
+		company.reviewedByLabel = 'platform-admin'
 		await company.save()
 
 		const companyObjectId = company._id as mongoose.Types.ObjectId

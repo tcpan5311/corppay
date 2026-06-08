@@ -1,15 +1,9 @@
-import crypto from 'crypto'
 import mongoose from 'mongoose'
 
 import { IUploadedDocument } from '../models/Company'
 import UserApplication, { UserDocumentType, UserGender } from '../models/UserApplication'
 import UserResubmissionToken, { buildUserResubmissionTokenDoc } from '../models/UserResubmissionToken'
-
-// Generates a cryptographically secure 64-character hex token.
-function generateSecureToken(): string
-{
-	return crypto.randomBytes(32).toString('hex')
-}
+import { generateSecureToken, hashToken } from '../utils/token_utils'
 
 export type CreateUserResubmissionTokenResult =
 {
@@ -34,12 +28,12 @@ export async function createUserResubmissionToken(
 		{ status: 'used' },
 	)
 
-	const token = generateSecureToken()
-	const doc   = buildUserResubmissionTokenDoc(token, email, applicationId)
-	const saved = await UserResubmissionToken.create(doc)
+	const rawToken = generateSecureToken()
+	const doc      = buildUserResubmissionTokenDoc(hashToken(rawToken), email, applicationId)
+	const saved    = await UserResubmissionToken.create(doc)
 
 	const result     = createUserResubmissionTokenResult()
-	result.token     = saved.token
+	result.token     = rawToken
 	result.expiresAt = saved.expiresAt
 	return result
 }
@@ -62,7 +56,7 @@ export function createUserResubmissionTokenVerifyResult(): UserResubmissionToken
 export async function verifyUserResubmissionToken(token: string): Promise<UserResubmissionTokenVerifyResult>
 {
 	const result  = createUserResubmissionTokenVerifyResult()
-	const pending = await UserResubmissionToken.findOne({ token })
+	const pending = await UserResubmissionToken.findOne({ token: hashToken(token) })
 
 	if (pending === null)
 	{
@@ -134,23 +128,14 @@ export async function completeUserResubmission(
 ): Promise<CompleteUserResubmissionResult>
 {
 	const result  = createCompleteUserResubmissionResult()
-	const pending = await UserResubmissionToken.findOne({ token })
-
+	const pending = await UserResubmissionToken.findOneAndUpdate(
+		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
+		{ status: 'used' },
+		{ new: false },
+	)
 	if (pending === null)
 	{
-		result.reason = 'Resubmission link is invalid.'
-		return result
-	}
-
-	if (pending.status === 'used')
-	{
-		result.reason = 'This resubmission link has already been used.'
-		return result
-	}
-
-	if (new Date() > pending.expiresAt)
-	{
-		result.reason = 'This resubmission link has expired.'
+		result.reason = 'Resubmission link is invalid, expired, or already used.'
 		return result
 	}
 
@@ -181,8 +166,6 @@ export async function completeUserResubmission(
 	application.reviewedAt   = null
 	application.reviewedBy   = null
 	await application.save()
-
-	await UserResubmissionToken.updateOne({ _id: pending._id }, { status: 'used' })
 
 	result.success = true
 	return result

@@ -32,6 +32,7 @@ export interface ICompany extends Document
 	status:             RegistrationStatus
 	submittedBy:        string
 	reviewedBy:         mongoose.Types.ObjectId | null
+	reviewedByLabel:    string | null
 	reviewedAt:         Date | null
 	reviewNote:         string | null
 	resubmissionCount:  number
@@ -90,6 +91,7 @@ const CompanySchema = new Schema<ICompany>(
 		status:             { type: String, enum: ['pending', 'approved', 'rejected', 'awaiting_resubmit'], default: 'pending' },
 		submittedBy:       { type: String, required: true },
 		reviewedBy:        { type: Schema.Types.ObjectId, ref: 'User', default: null },
+		reviewedByLabel:   { type: String, default: null },
 		reviewedAt:        { type: Date, default: null },
 		reviewNote:         { type: String, default: null },
 		resubmissionCount:  { type: Number, default: 0 },

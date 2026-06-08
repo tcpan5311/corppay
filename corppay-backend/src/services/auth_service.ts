@@ -415,17 +415,23 @@ export async function loginUser(
 // Rotates the company user refresh token and returns a new LoginResult.
 async function refreshCompanyUserAccessToken(tokenHash: string): Promise<LoginResult>
 {
-	const member = await CompanyUser.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+	const member = await CompanyUser.findOneAndUpdate(
+			{ refreshTokens: tokenHash },
+			{ $pull: { refreshTokens: tokenHash } },
+			{ new: true },
+		).select('+refreshTokens')
 
 	if (member === null)
 	{
 		throw new Error('Refresh token reuse detected or invalid token')
 	}
 
-	member.refreshTokens = member.refreshTokens.filter(t => t !== tokenHash)
-
 	const newRefreshToken = issueRefreshToken()
 	member.refreshTokens.push(hashToken(newRefreshToken))
+	if (member.refreshTokens.length > 5)
+	{
+		member.refreshTokens.shift()
+	}
 	await member.save()
 
 	const result        = createLoginResult()
@@ -438,17 +444,23 @@ async function refreshCompanyUserAccessToken(tokenHash: string): Promise<LoginRe
 // Rotates the admin refresh token and returns a new LoginResult, falling back to the company user collection.
 async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
 {
-	const admin = await AdminUser.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+	const admin = await AdminUser.findOneAndUpdate(
+			{ refreshTokens: tokenHash },
+			{ $pull: { refreshTokens: tokenHash } },
+			{ new: true },
+		).select('+refreshTokens')
 
 	if (admin === null)
 	{
 		return refreshCompanyUserAccessToken(tokenHash)
 	}
 
-	admin.refreshTokens = admin.refreshTokens.filter(t => t !== tokenHash)
-
 	const newRefreshToken = issueRefreshToken()
 	admin.refreshTokens.push(hashToken(newRefreshToken))
+	if (admin.refreshTokens.length > 5)
+	{
+		admin.refreshTokens.shift()
+	}
 	await admin.save()
 
 	const result        = createLoginResult()
@@ -461,18 +473,26 @@ async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
 // Rotates the stored refresh token and returns a new access token, checking the User, AdminUser, and CompanyUser collections.
 export async function refreshAccessToken(rawRefreshToken: string): Promise<LoginResult>
 {
-	const tokenHash = hashToken(rawRefreshToken)
-	const user = await User.findOne({ refreshTokens: tokenHash }).select('+refreshTokens')
+const tokenHash = hashToken(rawRefreshToken)
+
+	// Atomically remove the presented token so concurrent/replayed refreshes cannot both succeed.
+	const user = await User.findOneAndUpdate(
+		{ refreshTokens: tokenHash },
+		{ $pull: { refreshTokens: tokenHash } },
+		{ new: true },
+	).select('+refreshTokens')
 
 	if (user === null)
 	{
 		return refreshAdminAccessToken(tokenHash)
 	}
 
-	user.refreshTokens = user.refreshTokens.filter(t => t !== tokenHash)
-
 	const newRefreshToken = issueRefreshToken()
 	user.refreshTokens.push(hashToken(newRefreshToken))
+	if (user.refreshTokens.length > 5)
+	{
+		user.refreshTokens.shift()
+	}
 	await user.save()
 
 	const result        = createLoginResult()

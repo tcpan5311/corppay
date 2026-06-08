@@ -24,12 +24,32 @@ function resolveIp(req: Request): string
 }
 
 const ipMap = new Map<string, RateLimitEntry>()
+let lastSweep = Date.now()
+
+// Removes entries whose window has fully expired so the in-memory map cannot grow without bound.
+function sweepExpired(now: number): void
+{
+	for (const [ip, entry] of ipMap)
+	{
+		if (entry.windowStart !== null && now - entry.windowStart >= WINDOW_MS)
+		{
+			ipMap.delete(ip)
+		}
+	}
+}
 
 // Enforces a sliding-window rate limit per IP address, rejecting requests that exceed the threshold.
 export function companyRateLimit(req: Request, res: Response, next: NextFunction): void
 {
 	const ip  = resolveIp(req)
 	const now = Date.now()
+
+	// Sweep at most once per window to bound memory without per-request O(n) cost.
+	if (now - lastSweep >= WINDOW_MS)
+	{
+		sweepExpired(now)
+		lastSweep = now
+	}
 
 	if (!ipMap.has(ip))
 	{

@@ -65,10 +65,10 @@ export async function findActivePendingByEmail(email: string): Promise<IPendingU
 // Persists a pending user registration with a fresh token and 15-minute expiry, returning the token details.
 export async function savePendingUserRegistration(payload: SavePendingUserRegistrationPayload): Promise<SavePendingResult>
 {
-	const token = generateSecureToken()
+	const rawToken = generateSecureToken()
 
 	const doc = buildPendingUserRegistrationDoc(
-		token,
+		hashToken(rawToken),
 		payload.fullName,
 		payload.dateOfBirth,
 		payload.nationality,
@@ -84,7 +84,7 @@ export async function savePendingUserRegistration(payload: SavePendingUserRegist
 
 	const created    = await PendingUserRegistration.create(doc)
 	const result     = createSavePendingResult()
-	result.token     = created.token
+	result.token     = rawToken
 	result.expiresAt = created.expiresAt
 	return result
 }

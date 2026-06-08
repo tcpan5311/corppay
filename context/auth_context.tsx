@@ -1,10 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { Platform } from 'react-native'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL as string
 
 const ACCESS_TOKEN_KEY  = 'corppay_access_token'
 const REFRESH_TOKEN_KEY = 'corppay_refresh_token'
+
+// SecureStore (Keychain/Keystore) on native; AsyncStorage on web where SecureStore is unavailable.
+const useSecure = Platform.OS !== 'web'
+const tokenStore = {
+	get:    (key: string): Promise<string | null> => useSecure ? SecureStore.getItemAsync(key) : AsyncStorage.getItem(key),
+	set:    (key: string, value: string): Promise<void> => useSecure ? SecureStore.setItemAsync(key, value) : AsyncStorage.setItem(key, value),
+	remove: (key: string): Promise<void> => useSecure ? SecureStore.deleteItemAsync(key) : AsyncStorage.removeItem(key),
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,8 +103,7 @@ function createRestoredSession(): RestoredSession
 async function tryRestoreSession(): Promise<RestoredSession>
 {
 	const result  = createRestoredSession()
-	const stored  = await AsyncStorage.multiGet([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
-	const refresh = stored[1][1] !== null ? stored[1][1] : ''
+	const refresh = (await tokenStore.get(REFRESH_TOKEN_KEY)) ?? ''
 
 	if (refresh === '') return result
 
@@ -106,7 +115,7 @@ async function tryRestoreSession(): Promise<RestoredSession>
 
 	if (!response.ok)
 	{
-		await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
+		await Promise.all([tokenStore.remove(ACCESS_TOKEN_KEY), tokenStore.remove(REFRESH_TOKEN_KEY)])
 		return result
 	}
 
@@ -117,9 +126,9 @@ async function tryRestoreSession(): Promise<RestoredSession>
 
 	if (user === null || newAccessToken === '' || newRefreshToken === '') return result
 
-	await AsyncStorage.multiSet([
-		[ACCESS_TOKEN_KEY,  newAccessToken],
-		[REFRESH_TOKEN_KEY, newRefreshToken],
+	await Promise.all([
+		tokenStore.set(ACCESS_TOKEN_KEY,  newAccessToken),
+		tokenStore.set(REFRESH_TOKEN_KEY, newRefreshToken),
 	])
 
 	result.user        = user
@@ -186,9 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 			throw new Error('Received an invalid response from the server.')
 		}
 
-		await AsyncStorage.multiSet([
-			[ACCESS_TOKEN_KEY,  newAccessToken],
-			[REFRESH_TOKEN_KEY, newRefreshToken],
+		await Promise.all([
+			tokenStore.set(ACCESS_TOKEN_KEY,  newAccessToken),
+			tokenStore.set(REFRESH_TOKEN_KEY, newRefreshToken),
 		])
 
 		setAccessToken(newAccessToken)
@@ -198,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 	// Clears persisted tokens and resets authentication state, attempting a server-side logout if tokens exist.
 	async function logout(): Promise<void>
 	{
-		const stored       = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+		const stored       = await tokenStore.get(REFRESH_TOKEN_KEY)
 		const refreshToken = stored !== null ? stored : ''
 
 		if (refreshToken !== '' && accessToken !== '')
@@ -213,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 			}).catch((_err: unknown) => { /* server logout is best-effort */ })
 		}
 
-		await AsyncStorage.multiRemove([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY])
+		await Promise.all([tokenStore.remove(ACCESS_TOKEN_KEY), tokenStore.remove(REFRESH_TOKEN_KEY)])
 		setUser(null)
 		setAccessToken('')
 	}
