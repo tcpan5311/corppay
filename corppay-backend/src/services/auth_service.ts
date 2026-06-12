@@ -159,7 +159,7 @@ function claimsFromUser(user: IUser): TokenClaims
 {
 	const claims = createTokenClaims()
 	claims.sub   = String(user._id)
-	claims.role  = user.role
+	claims.role  = 'user'
 	return claims
 }
 
@@ -178,7 +178,7 @@ function safeUserFromUser(user: IUser): SafeLoginUser
 	const safe       = createSafeLoginUser()
 	safe.id          = String(user._id)
 	safe.email       = user.email
-	safe.role        = user.role
+	safe.role        = 'user'
 	safe.isActive    = user.isActive
 	safe.lastLoginAt = user.lastLoginAt !== null ? user.lastLoginAt : new Date(0)
 	return safe
@@ -222,7 +222,7 @@ function safeUserFromCompanyUser(member: ICompanyUser): SafeLoginUser
 // Issues a signed JWT access token for the given claims.
 function issueAccessToken(claims: TokenClaims): string
 {
-	return jwt.sign({ sub: claims.sub, role: claims.role }, ACCESS_SECRET, { expiresIn: '15m' })
+	return jwt.sign({ sub: claims.sub, role: claims.role }, ACCESS_SECRET, { expiresIn: '15m', algorithm: 'HS256' })
 }
 
 // Generates a cryptographically secure random refresh token.
@@ -252,7 +252,7 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 
 	if (user.lockedUntil !== null && user.lockedUntil !== undefined && user.lockedUntil > new Date())
 	{
-		throw new Error('Account temporarily locked. Try again later.')
+		throw genericError
 	}
 
 	const valid = await user.comparePassword(password)
@@ -308,7 +308,7 @@ async function loginAdminUser(email: string, password: string, companyId: string
 
 	if (admin.lockedUntil !== null && admin.lockedUntil > new Date())
 	{
-		throw new Error('Account temporarily locked. Try again later.')
+		throw genericError
 	}
 
 	const valid = await admin.comparePassword(password)
@@ -359,7 +359,7 @@ async function loginCompanyUser(email: string, password: string, companyId: stri
 
 	if (member.lockedUntil !== null && member.lockedUntil > new Date())
 	{
-		throw new Error('Account temporarily locked. Try again later.')
+		throw genericError
 	}
 
 	const valid = await member.comparePassword(password)

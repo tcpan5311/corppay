@@ -78,6 +78,12 @@ app.get('/', (request, response) =>
     response.json({ message: 'Corppay API running 🚀' })
 })
 
+// Returns a JSON 404 for any route no handler above matched.
+app.use((request, response) =>
+{
+	response.status(404).json({ error: 'Not found' })
+})
+
 const PORT = process.env.PORT || 5000
 
 async function startServer()

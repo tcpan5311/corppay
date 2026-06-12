@@ -36,7 +36,7 @@ export function issueAdminSessionToken(): string
 	const secret = resolveJwtSecret()
 	if (secret === '') throw new Error('Admin session secret is not configured.')
 	const claims = createAdminSessionClaims()
-	return jwt.sign(claims, secret, { expiresIn: '2h' })
+	return jwt.sign(claims, secret, { expiresIn: '2h', algorithm: 'HS256' })
 }
 
 // Verifies the given JWT against the ADMIN_REVIEW_TOKEN signing key and returns the result.
@@ -59,7 +59,7 @@ export function verifyAdminSessionToken(token: string): SessionVerificationResul
 
 	try
 	{
-		jwt.verify(token, secret)
+		jwt.verify(token, secret, { algorithms: ['HS256'] })
 		result.valid = true
 		return result
 	}

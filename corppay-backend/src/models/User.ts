@@ -5,7 +5,7 @@ export interface IUser extends Document
 {
     email:          string
     passwordHash:   string
-    role:           'user' | 'admin'
+    role:           'user'
     isActive:       boolean
     loginAttempts:  number
     lockedUntil:    Date | null
@@ -19,7 +19,7 @@ const UserSchema = new Schema<IUser>(
 {
     email:          { type: String,  required: true, unique: true, lowercase: true, trim: true },
     passwordHash:   { type: String, required: true, select: false },
-    role:           { type: String,  enum: ['user', 'admin'], default: 'user' },
+    role:           { type: String,  enum: ['user'], default: 'user' },
     isActive:       { type: Boolean, default: true },
     loginAttempts:  { type: Number,  default: 0 },
     lockedUntil:    { type: Date,    default: null },

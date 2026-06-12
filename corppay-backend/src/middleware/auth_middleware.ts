@@ -50,7 +50,7 @@ export function authenticate(request: Request, response: Response, next: NextFun
 
 	try
 	{
-		const decoded = jwt.verify(header.slice(7), resolveJwtSecret())
+		const decoded = jwt.verify(header.slice(7), resolveJwtSecret(), { algorithms: ['HS256'] })
 		const user    = toAuthenticatedUser(decoded)
 
 		if (user === null)
@@ -68,14 +68,20 @@ export function authenticate(request: Request, response: Response, next: NextFun
 	}
 }
 
-// Checks that the authenticated user holds one of the permitted roles, rejecting forbidden access.
+// Rejects unauthenticated callers, then ensures the authenticated user holds one of the permitted roles.
 export function requireRole(...roles: string[])
 {
 	return (request: Request, result: Response, next: NextFunction): void =>
 	{
 		const user = request.user
 
-		if (user === null || !roles.includes(user.role))
+		if (!user)
+		{
+			result.status(401).json({ error: 'Unauthorized' })
+			return
+		}
+
+		if (!roles.includes(user.role))
 		{
 			result.status(403).json({ error: 'Forbidden' })
 			return

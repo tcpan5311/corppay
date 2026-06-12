@@ -5,7 +5,7 @@ import mongoose from 'mongoose'
 import path from 'path'
 import QRCode from 'qrcode'
 import { validateTotpInput } from '../../src/validation/totpValidation'
-import { adminTokenMiddleware, requireAdminRole, validateAdminSetupKey } from '../middleware/admin_middleware'
+import { requireAdminRole, validateAdminSetupKey } from '../middleware/admin_middleware'
 import Company from '../models/Company'
 import { createSendOnboardingEmailParams, sendOnboardingEmail } from '../services/admin_onboarding_email_service'
 import { createOnboardingToken } from '../services/admin_onboarding_service'
@@ -108,7 +108,7 @@ router.get('/setup', async (req: Request, res: Response) =>
 })
 
 // Returns all company registration records sorted by newest submission first.
-router.get('/companies', adminTokenMiddleware, async (_req: Request, res: Response) =>
+router.get('/companies', requireAdminRole, async (_req: Request, res: Response) =>
 {
 	try
 	{
@@ -122,8 +122,8 @@ router.get('/companies', adminTokenMiddleware, async (_req: Request, res: Respon
 	}
 })
 
-// Streams an uploaded document file to the client after session validation and filename sanitization.
-router.get('/file/:filename', adminTokenMiddleware, (req: Request<{ filename: string }>, res: Response) =>
+// Streams an uploaded company document after verifying admin role, filename safety, and that the file belongs to a company record.
+router.get('/file/:filename', requireAdminRole, async (req: Request<{ filename: string }>, res: Response) =>
 {
 	const filename  = req.params.filename
 	const uploadDir = resolveUploadDir()
@@ -135,12 +135,27 @@ router.get('/file/:filename', adminTokenMiddleware, (req: Request<{ filename: st
 
 	const filePath = path.resolve(path.join(uploadDir, filename))
 
-	if (!fs.existsSync(filePath))
+	try
 	{
-		return res.status(404).json({ error: 'File not found.' })
-	}
+		const owner = await Company.findOne({ 'documents.storagePath': filePath }).lean()
 
-	return res.sendFile(filePath)
+		if (owner === null)
+		{
+			return res.status(404).json({ error: 'File not found.' })
+		}
+
+		if (!fs.existsSync(filePath))
+		{
+			return res.status(404).json({ error: 'File not found.' })
+		}
+
+		return res.sendFile(filePath)
+	}
+	catch (err)
+	{
+		console.error('[admin_routes] file fetch error:', err)
+		return res.status(500).json({ error: 'Failed to load document.' })
+	}
 })
 
 // Approves a pending company registration, generates a 24-hour onboarding token, and dispatches the setup email.
