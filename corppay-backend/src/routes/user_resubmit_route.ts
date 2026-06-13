@@ -6,19 +6,19 @@ import path from 'path'
 import Company, { IUploadedDocument, createUploadedDocument } from '../models/Company'
 import UserApplication from '../models/UserApplication'
 import {
-    completeUserResubmission,
-    createResubmitUserPayload,
-    verifyUserResubmissionToken,
+	completeUserResubmission,
+	createResubmitUserPayload,
+	verifyUserResubmissionToken,
 } from '../services/user_resubmission_service'
 import {
-    validateDateOfBirth,
-    validateDocumentType,
-    validateFullAddress,
-    validateFullName,
-    validateGender,
-    validateMobileNumber,
-    validateNationality,
-    validateUploadedFile,
+	validateDateOfBirth,
+	validateDocumentType,
+	validateFullAddress,
+	validateFullName,
+	validateGender,
+	validateMobileNumber,
+	validateNationality,
+	validateUploadedFile,
 } from '../validation/registerUserValidation'
 
 // ─── Validation ───────────────────────────────────────────────────────────────

@@ -103,7 +103,8 @@ function createRestoredSession(): RestoredSession
 async function tryRestoreSession(): Promise<RestoredSession>
 {
 	const result  = createRestoredSession()
-	const refresh = (await tokenStore.get(REFRESH_TOKEN_KEY)) ?? ''
+	const storedRefresh = await tokenStore.get(REFRESH_TOKEN_KEY)
+	const refresh = storedRefresh === null ? '' : storedRefresh
 
 	if (refresh === '') return result
 

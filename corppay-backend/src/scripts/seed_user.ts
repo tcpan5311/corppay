@@ -5,32 +5,36 @@ import bcrypt from 'bcryptjs'
 import mongoose from 'mongoose'
 import User from '../models/User'
 
-async function seed() {
-  try {
-    console.log("Connecting to:", process.env.MONGODB_URI)
+// Seeds a single test user into the connected database and logs the result.
+async function seed()
+{
+	try
+	{
+		await mongoose.connect(process.env.MONGODB_URI as string)
 
-    await mongoose.connect(process.env.MONGODB_URI as string)
+		console.log("Connected DB:", mongoose.connection.name)
 
-    console.log("Connected DB:", mongoose.connection.name)
+		const hash = await bcrypt.hash('Test123456', 12)
 
-    const hash = await bcrypt.hash('Test123456', 12)
+		const created = await User.create({
+			email: 'tc.pan@corppay.com',
+			passwordHash: hash,
+			role: 'user',
+		})
 
-    const created = await User.create({
-      email: 'tc.pan@corppay.com',
-      passwordHash: hash,
-      role: 'user'
-    })
+		console.log("User created:", created)
 
-    console.log("User created:", created)
-
-    const allUsers = await User.find()
-    console.log("All users:", allUsers)
-
-  } catch (err) {
-    console.error("ERROR:", err)
-  } finally {
-    await mongoose.disconnect()
-  }
+		const allUsers = await User.find()
+		console.log("All users:", allUsers)
+	}
+	catch (err)
+	{
+		console.error("ERROR:", err)
+	}
+	finally
+	{
+		await mongoose.disconnect()
+	}
 }
 
 seed()

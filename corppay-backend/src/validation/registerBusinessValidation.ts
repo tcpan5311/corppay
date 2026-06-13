@@ -6,7 +6,7 @@ export type FormErrors =
 	registeredAddress: string | null
 	registeredEmail:   string | null
 	icPassport:        string | null
-    directorRole:      string | null
+	directorRole:      string | null
 	ownershipPct:      string | null
 	ssmDoc:            string | null
 	icDoc:             string | null
@@ -21,7 +21,7 @@ export function createFormErrors(): FormErrors
 		registeredAddress: null,
 		registeredEmail:   null,
 		icPassport:        null,
-        directorRole:      null, 
+		directorRole:      null, 
 		ownershipPct:      null,
 		ssmDoc:            null,
 		icDoc:             null,
@@ -36,7 +36,7 @@ export type TouchedFields =
 	registeredAddress: boolean
 	registeredEmail:   boolean
 	icPassport:        boolean
-    directorRole:      boolean 
+	directorRole:      boolean 
 	ownershipPct:      boolean
 	ssmDoc:            boolean
 	icDoc:             boolean
@@ -51,7 +51,7 @@ export function createTouchedFields(): TouchedFields
 		registeredAddress: false,
 		registeredEmail:   false,
 		icPassport:        false,
-        directorRole:      false, 
+		directorRole:      false, 
 		ownershipPct:      false,
 		ssmDoc:            false,
 		icDoc:             false,
@@ -67,7 +67,7 @@ export function touchAllFields(): TouchedFields
 		registeredAddress: true,
 		registeredEmail:   true,
 		icPassport:        true,
-        directorRole:      true, 
+		directorRole:      true, 
 		ownershipPct:      true,
 		ssmDoc:            true,
 		icDoc:             true,
@@ -151,10 +151,10 @@ export function validateOwnershipPct(value: string): string | null
 {
 	if (value.trim() === '')          return 'Ownership percentage is required.'
 
-    if (!/^\d+$/.test(value.trim()))
-    {
-        return 'Enter a valid number between 0 and 100.'
-    }
+	if (!/^\d+$/.test(value.trim()))
+	{
+		return 'Enter a valid number between 0 and 100.'
+	}
 
 	const num = parseFloat(value)
 	if (isNaN(num))                   return 'Enter a valid number.'
@@ -183,7 +183,7 @@ export function validateUploadedFile(file:  UploadFileValidatable, label: string
 	{
 		return `${label} is required.`
 	}
-	const mime = file.mimeType ?? ''
+	const mime = file.mimeType === null ? '' : file.mimeType
 	if (!ALLOWED_MIME_TYPES.includes(mime.toLowerCase()))
 	{
 		return 'Only PDF, JPG, or PNG files are accepted.'
@@ -203,7 +203,7 @@ export function validateAllFields
 	registeredAddress: string,
 	registeredEmail:   string,
 	icPassport:        string,
-    directorRole:      string | null,
+	directorRole:      string | null,
 	ownershipPct:      string,
 	ssmDoc:            UploadFileValidatable,
 	icDoc:             UploadFileValidatable,
@@ -217,7 +217,7 @@ FormErrors
 		registeredAddress: validateRegisteredAddress(registeredAddress),
 		registeredEmail:   validateRegisteredEmail(registeredEmail),
 		icPassport:        validateIcPassport(icPassport),
-        directorRole:      validateDirectorRole(directorRole),
+		directorRole:      validateDirectorRole(directorRole),
 		ownershipPct:      validateOwnershipPct(ownershipPct),
 		ssmDoc:            validateUploadedFile(ssmDoc, 'Certificate of Incorporation'),
 		icDoc:             validateUploadedFile(icDoc, 'Director IC / Passport Copy'),

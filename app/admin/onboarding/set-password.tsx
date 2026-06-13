@@ -221,20 +221,16 @@ export default function SetPasswordScreen()
 
 			setState((prev) => ({ ...prev, phase: 'success', isSubmitting: false }))
 
-			setTimeout(
-				() => 
-				{ 
-					if (Platform.OS === 'web')
-					{
-						window.close()
-					}
-					else
+			if (Platform.OS !== 'web')
+			{
+				setTimeout(
+					() =>
 					{
 						router.replace('/login' as never)
-					}
-				},
-				3000,
-			)
+					},
+					3000,
+				)
+			}
 		}
 		catch (e)
 		{

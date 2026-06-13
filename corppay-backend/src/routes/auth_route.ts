@@ -179,11 +179,11 @@ router.post('/logout', authenticate, async (request: Request, response: Response
 	try
 	{
 		const sub = typeof reqUser.sub === 'string' ? reqUser.sub : ''
-        if (sub === '')
-        {
-            return response.status(401).json({ error: 'Unauthorized' })
-        }
-        await logoutUser(sub, token)
+		if (sub === '')
+		{
+			return response.status(401).json({ error: 'Unauthorized' })
+		}
+		await logoutUser(sub, token)
 		return response.json({ message: 'Logged out successfully' })
 	}
 	catch (err)

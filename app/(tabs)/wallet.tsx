@@ -3,9 +3,9 @@ import { ScrollView } from 'react-native'
 
 export default function WalletTab() 
 {
-  return (
-    <ScrollView className="flex-1 bg-[#F4F6FA]">
-      <WalletScreen />
-    </ScrollView>
-  )
+	return (
+		<ScrollView className="flex-1 bg-[#F4F6FA]">
+			<WalletScreen />
+		</ScrollView>
+	)
 }

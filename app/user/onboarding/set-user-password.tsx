@@ -2,18 +2,18 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useEffect, useState } from 'react'
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+	ActivityIndicator,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
 } from 'react-native'
 import {
-    validateAdminPassword,
-    validatePasswordConfirmation,
+	validateAdminPassword,
+	validatePasswordConfirmation,
 } from '../../../corppay-backend/src/validation/adminSetPasswordValidation'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
@@ -235,20 +235,16 @@ export default function SetUserPasswordScreen()
 
 			setState((prev) => ({ ...prev, phase: 'success', isSubmitting: false }))
 
-			setTimeout(
-				() =>
-				{
-					if (Platform.OS === 'web')
-					{
-						window.close()
-					}
-					else
+			if (Platform.OS !== 'web')
+			{
+				setTimeout(
+					() =>
 					{
 						router.replace('/login' as never)
-					}
-				},
-				3000,
-			)
+					},
+					3000,
+				)
+			}
 		}
 		catch (e)
 		{

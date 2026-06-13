@@ -37,7 +37,9 @@ for (const key of REQUIRED_ENV)
 }
 
 // Comma-separated allowlist of permitted web origins.
-const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+const rawAllowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+const allowedOriginsValue = rawAllowedOrigins === undefined ? '' : rawAllowedOrigins
+const ALLOWED_ORIGINS = allowedOriginsValue
 	.split(',')
 	.map((o) => o.trim())
 	.filter((o) => o !== '')
@@ -75,7 +77,7 @@ app.use('/portal', portalRoutes)
 
 app.get('/', (request, response) =>
 {
-    response.json({ message: 'Corppay API running 🚀' })
+	response.json({ message: 'Corppay API running 🚀' })
 })
 
 // Returns a JSON 404 for any route no handler above matched.
@@ -88,22 +90,22 @@ const PORT = process.env.PORT || 5000
 
 async function startServer()
 {
-    try
-    {
-        await mongoose.connect(process.env.MONGODB_URI as string)
+	try
+	{
+		await mongoose.connect(process.env.MONGODB_URI as string)
 
-        console.log('✅ MongoDB connected')
+		console.log('✅ MongoDB connected')
 
-        app.listen(PORT, () =>
-        {
-            console.log(`🚀 Server running on http://localhost:${PORT}`)
-        })
-    }
-    catch (error)
-    {
-        console.error('❌ Failed to start server:', error)
-        process.exit(1)
-    }
+		app.listen(PORT, () =>
+		{
+			console.log(`🚀 Server running on http://localhost:${PORT}`)
+		})
+	}
+	catch (error)
+	{
+		console.error('❌ Failed to start server:', error)
+		process.exit(1)
+	}
 }
 
 startServer()

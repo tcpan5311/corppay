@@ -208,8 +208,10 @@ function resolveDocLabel(fieldName: string | null): string
 // Extracts the filename component from a storage path string, returning empty string on failure.
 function extractFilename(storagePath: string | null): string
 {
-	if (!storagePath) return ''
-	return storagePath.split(/[/\\]/).pop() ?? ''
+	if (storagePath === null || storagePath === '') return ''
+	const segments = storagePath.split(/[/\\]/)
+	const last = segments[segments.length - 1]
+	return last === undefined ? '' : last
 }
 
 // Formats a byte count as a human-readable size string.
