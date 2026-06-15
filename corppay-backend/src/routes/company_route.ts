@@ -10,7 +10,7 @@ import {
 	validateAllFields,
 } from '../../src/validation/registerBusinessValidation'
 import { companyRateLimit } from '../middleware/company_middleware'
-import { IUploadedDocument } from '../models/Company'
+import { IUploadedDocument, createUploadedDocument } from '../models/Company'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/admin_confirm_email_service'
 import { createSavePendingRegistrationPayload, findActivePendingByName, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
 import { findCompanyByName, findCompanyBySsm } from '../services/company_service'
@@ -146,22 +146,30 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage
-({
-	// Resolves the destination directory for incoming uploaded files.
-	destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
-	{
-		cb(null, uploadDir)
-	},
+const storage = multer.memoryStorage()
 
-	// Generates a UUID-based filename while preserving the original file extension.
-	filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) =>
+// Writes a validated in-memory upload to the uploads directory, records its path for later cleanup, and returns its absolute storage path.
+function persistUploadedFile(file: Express.Multer.File, writtenPaths: string[]): string
+{
+	const ext      = path.extname(file.originalname)
+	const filename = `${randomUUID()}${ext}`
+	const target   = path.join(uploadDir, filename)
+	fs.writeFileSync(target, file.buffer)
+	writtenPaths.push(target)
+	return target
+}
+
+// Removes the given files from disk, ignoring any that are already absent.
+function discardPersistedFiles(writtenPaths: string[]): void
+{
+	for (const target of writtenPaths)
 	{
-		const ext  = path.extname(file.originalname)
-		const safe = randomUUID()
-		cb(null, `${safe}${ext}`)
-	},
-})
+		if (fs.existsSync(target))
+		{
+			fs.unlinkSync(target)
+		}
+	}
+}
 
 // Allows only PDF, JPEG, and PNG files through the multer upload pipeline.
 function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void
@@ -218,27 +226,25 @@ function resolveUploadedFiles(files: Record<string, Express.Multer.File[]> | nul
 	return createResolvedFilesSuccess(files['ssmDoc'][0], files['icDoc'][0])
 }
 
-// Builds the IUploadedDocument array from the two required multer file objects.
-function buildDocuments(ssmFile: Express.Multer.File, icFile: Express.Multer.File): IUploadedDocument[]
+// Persists both validated uploads to disk and returns the documents describing them, recording each written path for cleanup.
+function buildDocuments(ssmFile: Express.Multer.File, icFile: Express.Multer.File, writtenPaths: string[]): IUploadedDocument[]
 {
-	const ssmDoc: IUploadedDocument =
-	{
-		fieldName:    'ssm_cert',
-		originalName: ssmFile.originalname,
-		storagePath:  ssmFile.path,
-		mimeType:     ssmFile.mimetype,
-		sizeBytes:    ssmFile.size,
-		uploadedAt:   new Date(),
-	}
-	const icDoc: IUploadedDocument =
-	{
-		fieldName:    'director_ic',
-		originalName: icFile.originalname,
-		storagePath:  icFile.path,
-		mimeType:     icFile.mimetype,
-		sizeBytes:    icFile.size,
-		uploadedAt:   new Date(),
-	}
+	const ssmDoc        = createUploadedDocument()
+	ssmDoc.fieldName    = 'ssm_cert'
+	ssmDoc.originalName = ssmFile.originalname
+	ssmDoc.storagePath  = persistUploadedFile(ssmFile, writtenPaths)
+	ssmDoc.mimeType     = ssmFile.mimetype
+	ssmDoc.sizeBytes    = ssmFile.size
+	ssmDoc.uploadedAt   = new Date()
+
+	const icDoc         = createUploadedDocument()
+	icDoc.fieldName     = 'director_ic'
+	icDoc.originalName  = icFile.originalname
+	icDoc.storagePath   = persistUploadedFile(icFile, writtenPaths)
+	icDoc.mimeType      = icFile.mimetype
+	icDoc.sizeBytes     = icFile.size
+	icDoc.uploadedAt    = new Date()
+
 	return [ssmDoc, icDoc]
 }
 
@@ -352,15 +358,16 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 		return res.status(409).json({ error: 'A verification email for a company with this name was already sent. Please check your inbox, or wait for it to expire before resubmitting.' })
 	}
 
-	const ssmFile    = resolved.ssmFile as Express.Multer.File
-	const icFile     = resolved.icFile  as Express.Multer.File
-	const documents  = buildDocuments(ssmFile, icFile)
+	const ssmFile      = resolved.ssmFile as Express.Multer.File
+	const icFile       = resolved.icFile  as Express.Multer.File
 	const ownershipPct = resolveOwnershipPct(body)
 	const icPassport   = resolveDirectorIcPassport(body)
 	const directorRole = resolveDirectorRole(body)
+	const writtenPaths: string[] = []
 
 	try
 	{
+		const documents                      = buildDocuments(ssmFile, icFile, writtenPaths)
 		const payload                        = createSavePendingRegistrationPayload()
 		payload.name                         = extractBodyString(body, 'name')
 		payload.ssmNumber                    = extractBodyString(body, 'ssmNumber')
@@ -387,6 +394,7 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 	}
 	catch (err)
 	{
+		discardPersistedFiles(writtenPaths)
 		const message = (err as Error).message !== '' ? (err as Error).message : 'Registration failed. Please try again.'
 		console.error('[company_routes] initiate-register error:', err)
 		return res.status(500).json({ error: message })

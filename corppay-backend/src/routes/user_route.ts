@@ -4,7 +4,7 @@ import fs from 'fs'
 import multer, { FileFilterCallback } from 'multer'
 import path from 'path'
 import { companyRateLimit } from '../middleware/company_middleware'
-import Company, { IUploadedDocument } from '../models/Company'
+import Company, { IUploadedDocument, createUploadedDocument } from '../models/Company'
 import { findApplicationByEmail } from '../services/user_application_service'
 import { createSendVerificationEmailParams, sendVerificationEmail } from '../services/user_confirm_email_service'
 import {
@@ -152,22 +152,30 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage
-({
-	// Resolves the destination directory for incoming uploaded files.
-	destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
-	{
-		cb(null, uploadDir)
-	},
+const storage = multer.memoryStorage()
 
-	// Generates a UUID-based filename while preserving the original file extension.
-	filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) =>
+// Writes a validated in-memory upload to the uploads directory, records its path for later cleanup, and returns its absolute storage path.
+function persistUploadedFile(file: Express.Multer.File, writtenPaths: string[]): string
+{
+	const ext      = path.extname(file.originalname)
+	const filename = `${randomUUID()}${ext}`
+	const target   = path.join(uploadDir, filename)
+	fs.writeFileSync(target, file.buffer)
+	writtenPaths.push(target)
+	return target
+}
+
+// Removes the given files from disk, ignoring any that are already absent.
+function discardPersistedFiles(writtenPaths: string[]): void
+{
+	for (const target of writtenPaths)
 	{
-		const ext  = path.extname(file.originalname)
-		const safe = randomUUID()
-		cb(null, `${safe}${ext}`)
-	},
-})
+		if (fs.existsSync(target))
+		{
+			fs.unlinkSync(target)
+		}
+	}
+}
 
 // Allows only PDF, JPEG, and PNG files through the multer upload pipeline.
 function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void
@@ -190,18 +198,16 @@ const uploadFields = upload.fields
 	{ name: 'idDoc', maxCount: 1 },
 ])
 
-// Builds the IUploadedDocument array from the required identity document multer file object.
-function buildDocuments(idFile: Express.Multer.File): IUploadedDocument[]
+// Persists the validated identity upload to disk and returns the document describing it, recording the written path for cleanup.
+function buildDocuments(idFile: Express.Multer.File, writtenPaths: string[]): IUploadedDocument[]
 {
-	const idDoc: IUploadedDocument =
-	{
-		fieldName:    'identity_doc',
-		originalName: idFile.originalname,
-		storagePath:  idFile.path,
-		mimeType:     idFile.mimetype,
-		sizeBytes:    idFile.size,
-		uploadedAt:   new Date(),
-	}
+	const idDoc        = createUploadedDocument()
+	idDoc.fieldName    = 'identity_doc'
+	idDoc.originalName = idFile.originalname
+	idDoc.storagePath  = persistUploadedFile(idFile, writtenPaths)
+	idDoc.mimeType     = idFile.mimetype
+	idDoc.sizeBytes    = idFile.size
+	idDoc.uploadedAt   = new Date()
 	return [idDoc]
 }
 
@@ -262,10 +268,11 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 		return res.status(409).json({ error: 'A verification email for this address was already sent. Please check your inbox, or wait for it to expire before resubmitting.' })
 	}
 
-	const documents = buildDocuments(idFile)
+	const writtenPaths: string[] = []
 
 	try
 	{
+		const documents = buildDocuments(idFile, writtenPaths)
 		const payload      = createSavePendingUserRegistrationPayload()
 		payload.fullName     = values.fullName.trim()
 		payload.dateOfBirth  = values.dateOfBirth.trim()
@@ -295,6 +302,7 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 	}
 	catch (err)
 	{
+		discardPersistedFiles(writtenPaths)
 		const message = (err as Error).message !== '' ? (err as Error).message : 'Registration failed. Please try again.'
 		console.error('[user_routes] initiate-register error:', err)
 		return res.status(500).json({ error: message })

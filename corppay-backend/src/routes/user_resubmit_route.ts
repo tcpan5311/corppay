@@ -149,28 +149,37 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage
-({
-	destination: (
-		_req: Request,
-		_file: Express.Multer.File,
-		cb: (error: Error | null, destination: string) => void,
-	) =>
-	{
-		cb(null, uploadDir)
-	},
+const storage = multer.memoryStorage()
 
-	filename: (
-		_req: Request,
-		file: Express.Multer.File,
-		cb: (error: Error | null, filename: string) => void,
-	) =>
+// Writes a validated in-memory upload to the uploads directory, records its path for later cleanup, and returns its absolute storage path.
+function persistUploadedFile(file: Express.Multer.File, writtenPaths: string[]): string
+{
+	const ext      = path.extname(file.originalname)
+	const filename = `${randomUUID()}${ext}`
+	const target   = path.join(uploadDir, filename)
+	fs.writeFileSync(target, file.buffer)
+	writtenPaths.push(target)
+	return target
+}
+
+// Removes the given files from disk on a best-effort basis, ignoring any that are absent or cannot be deleted.
+function discardPersistedFiles(paths: string[]): void
+{
+	for (const target of paths)
 	{
-		const ext  = path.extname(file.originalname)
-		const safe = randomUUID()
-		cb(null, `${safe}${ext}`)
-	},
-})
+		try
+		{
+			if (fs.existsSync(target))
+			{
+				fs.unlinkSync(target)
+			}
+		}
+		catch (err)
+		{
+			console.error('[user_resubmit_routes] failed to remove file:', target, err)
+		}
+	}
+}
 
 // Allows only PDF, JPEG, and PNG files through the multer upload pipeline.
 function fileFilter
@@ -197,29 +206,40 @@ const uploadFields = upload.fields
 	{ name: 'idDoc', maxCount: 1 },
 ])
 
-// Builds an IUploadedDocument from a multer file object with the given field name.
-function buildDocument(file: Express.Multer.File, fieldName: string): IUploadedDocument
+// Persists a validated in-memory upload to disk and returns the document describing it, recording the written path for cleanup.
+function buildDocument(file: Express.Multer.File, fieldName: string, writtenPaths: string[]): IUploadedDocument
 {
-	return {
-		fieldName,
-		originalName: file.originalname,
-		storagePath:  file.path,
-		mimeType:     file.mimetype,
-		sizeBytes:    file.size,
-		uploadedAt:   new Date(),
+	const doc        = createUploadedDocument()
+	doc.fieldName    = fieldName
+	doc.originalName = file.originalname
+	doc.storagePath  = persistUploadedFile(file, writtenPaths)
+	doc.mimeType     = file.mimetype
+	doc.sizeBytes    = file.size
+	doc.uploadedAt   = new Date()
+	return doc
+}
+
+// Records the storage path of a soon-to-be-replaced document when an incoming file supersedes an existing one that has a stored file.
+function recordReplacedPath(incoming: Express.Multer.File | null, existing: IUploadedDocument | undefined, replacedPaths: string[]): void
+{
+	if (incoming !== null && existing !== undefined && existing.storagePath !== null)
+	{
+		replacedPaths.push(existing.storagePath)
 	}
 }
 
-// Merges an incoming uploaded identity file with the application's existing documents, replacing the matching field.
-function mergeDocuments(existing: IUploadedDocument[], idFile:   Express.Multer.File | null): IUploadedDocument[]
+// Merges an incoming uploaded identity file with the application's existing documents, replacing the matching field and recording written and superseded paths for cleanup.
+function mergeDocuments(existing: IUploadedDocument[], idFile: Express.Multer.File | null, writtenPaths: string[], replacedPaths: string[]): IUploadedDocument[]
 {
 	const existingId = existing.find((d) => d.fieldName === 'identity_doc')
+
+	recordReplacedPath(idFile, existingId, replacedPaths)
 
 	const fallbackId      = createUploadedDocument()
 	fallbackId.fieldName  = 'identity_doc'
 
 	const idDoc: IUploadedDocument = idFile !== null
-		? buildDocument(idFile, 'identity_doc')
+		? buildDocument(idFile, 'identity_doc', writtenPaths)
 		: (existingId !== undefined ? existingId : fallbackId)
 
 	const others = existing.filter((d) => d.fieldName !== 'identity_doc')
@@ -311,6 +331,9 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 		})
 	}
 
+	const writtenPaths:  string[] = []
+	const replacedPaths: string[] = []
+
 	try
 	{
 		const tokenVerify = await verifyUserResubmissionToken(token)
@@ -331,7 +354,7 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 		}
 
 		const idMulFile  = resolveMulterFile(files, 'idDoc')
-		const mergedDocs = mergeDocuments(application.documents, idMulFile)
+		const mergedDocs = mergeDocuments(application.documents, idMulFile, writtenPaths, replacedPaths)
 
 		const payload         = createResubmitUserPayload()
 		payload.fullName      = extractBodyString(body, 'fullName')
@@ -346,9 +369,11 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 		const resubmitResult = await completeUserResubmission(token, payload)
 		if (!resubmitResult.success)
 		{
+			discardPersistedFiles(writtenPaths)
 			return res.status(400).json({ error: resubmitResult.reason })
 		}
 
+		discardPersistedFiles(replacedPaths)
 		return res.status(200).json
 		({
 			message: 'Resubmission received. Your application is under review.',
@@ -356,6 +381,7 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 	}
 	catch (err)
 	{
+		discardPersistedFiles(writtenPaths)
 		console.error('[user_resubmit_routes] resubmit error:', err)
 		return res.status(500).json({ error: 'Resubmission failed. Please try again.' })
 	}
