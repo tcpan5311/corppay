@@ -103,7 +103,8 @@ export async function sendResubmissionEmail(params: SendResubmissionEmailParams)
 	const textBody     = buildResubmissionTextBody(resubmitUrl)
 	const htmlBody     = buildResubmissionHtmlBody(resubmitUrl)
 
-	await resubmissionTransporter.sendMail({
+	await resubmissionTransporter.sendMail
+	({
 		from,
 		to:      params.toAddress,
 		subject: 'CorpPay — Your registration is open for resubmission',

@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose'
 
 import { IUploadedDocument } from './Company'
 
-export type UserGender             = 'male' | 'female' 
+export type UserGender             = 'male' | 'female'
 export type UserDocumentType       = 'passport' | 'national_id' | 'drivers_license'
 export type ApplicationStatus      = 'pending' | 'approved' | 'rejected' | 'awaiting_resubmit'
 
@@ -31,7 +31,8 @@ export interface IUserApplication extends Document
 	updatedAt:          Date
 }
 
-const UploadedDocumentSchema = new Schema<IUploadedDocument>(
+const UploadedDocumentSchema = new Schema<IUploadedDocument>
+(
 	{
 		fieldName:    { type: String, required: true, default: null },
 		originalName: { type: String, required: true, default: null },
@@ -43,7 +44,8 @@ const UploadedDocumentSchema = new Schema<IUploadedDocument>(
 	{ _id: false },
 )
 
-const UserApplicationSchema = new Schema<IUserApplication>(
+const UserApplicationSchema = new Schema<IUserApplication>
+(
 	{
 		fullName:           { type: String, required: true, trim: true },
 		dateOfBirth:        { type: String, required: true, trim: true },

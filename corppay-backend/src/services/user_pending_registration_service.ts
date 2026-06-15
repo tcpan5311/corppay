@@ -67,7 +67,8 @@ export async function savePendingUserRegistration(payload: SavePendingUserRegist
 {
 	const rawToken = generateSecureToken()
 
-	const doc = buildPendingUserRegistrationDoc(
+	const doc = buildPendingUserRegistrationDoc
+	(
 		hashToken(rawToken),
 		payload.fullName,
 		payload.dateOfBirth,
@@ -106,7 +107,8 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 {
 	const result  = createVerifyTokenResult()
 	const tokenHash = hashToken(token)
-	const pending = await PendingUserRegistration.findOneAndUpdate(
+	const pending = await PendingUserRegistration.findOneAndUpdate
+	(
 		{ token: tokenHash, status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'verified' },
 		{ new: false },

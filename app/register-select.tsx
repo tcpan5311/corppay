@@ -2,12 +2,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Href, useRouter } from 'expo-router'
 import React from 'react'
 import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
+	ScrollView,
+	Text,
+	TouchableOpacity,
+	View
 } from 'react-native'
 
+// Renders the registration entry screen offering the new-business and join-existing-business paths.
 export default function RegisterSelectScreen()
 {
 	const router = useRouter()
@@ -19,7 +20,6 @@ export default function RegisterSelectScreen()
 				contentContainerStyle={{ flexGrow: 1 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				{/* HEADER */}
 				<View className="bg-blue-600 rounded-b-3xl px-6 pt-14 pb-12 overflow-hidden">
 					<View className="absolute top-4 right-4 w-32 h-32 rounded-full bg-blue-500 opacity-40" />
 					<View className="absolute top-16 right-16 w-20 h-20 rounded-full bg-blue-400 opacity-30" />
@@ -41,10 +41,8 @@ export default function RegisterSelectScreen()
 					</Text>
 				</View>
 
-				{/* BODY */}
 				<View className="flex-1 px-6 pt-8 pb-6">
 
-					{/* REGISTER NEW BUSINESS CARD */}
 					<TouchableOpacity
 						className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-4"
 						onPress={() => router.push('/register-business' as Href)}
@@ -69,17 +67,21 @@ export default function RegisterSelectScreen()
 								'Upload SSM documents',
 								'Add director information',
 								'Full admin access',
-							].map((item) => (
-								<View key={item} className="flex-row items-center">
-									<MaterialCommunityIcons
-										name="check-circle-outline"
-										size={16}
-										color="#3B82F6"
-										style={{ marginRight: 8 }}
-									/>
-									<Text className="text-gray-600 text-sm">{item}</Text>
-								</View>
-							))}
+							].map
+							(
+								(item) =>
+								(
+									<View key={item} className="flex-row items-center">
+										<MaterialCommunityIcons
+											name="check-circle-outline"
+											size={16}
+											color="#3B82F6"
+											style={{ marginRight: 8 }}
+										/>
+										<Text className="text-gray-600 text-sm">{item}</Text>
+									</View>
+								)
+							)}
 						</View>
 
 						<View className="flex-row items-center">
@@ -90,7 +92,6 @@ export default function RegisterSelectScreen()
 						</View>
 					</TouchableOpacity>
 
-					{/* JOIN EXISTING BUSINESS CARD */}
 					<TouchableOpacity
 						className="bg-purple-50 border border-purple-100 rounded-2xl p-5 mb-6"
 						onPress={() => router.push('/register-user' as Href)}
@@ -115,17 +116,21 @@ export default function RegisterSelectScreen()
 								'Link to company account',
 								'Access payroll & benefits',
 								'Employee permissions',
-							].map((item) => (
-								<View key={item} className="flex-row items-center">
-									<MaterialCommunityIcons
-										name="check-circle-outline"
-										size={16}
-										color="#9333EA"
-										style={{ marginRight: 8 }}
-									/>
-									<Text className="text-gray-600 text-sm">{item}</Text>
-								</View>
-							))}
+							].map
+							(
+								(item) =>
+								(
+									<View key={item} className="flex-row items-center">
+										<MaterialCommunityIcons
+											name="check-circle-outline"
+											size={16}
+											color="#9333EA"
+											style={{ marginRight: 8 }}
+										/>
+										<Text className="text-gray-600 text-sm">{item}</Text>
+									</View>
+								)
+							)}
 						</View>
 
 						<View className="flex-row items-center">
@@ -136,14 +141,12 @@ export default function RegisterSelectScreen()
 						</View>
 					</TouchableOpacity>
 
-					{/* DIVIDER */}
 					<View className="flex-row items-center mb-6">
 						<View className="flex-1 h-px bg-gray-200" />
 						<Text className="text-gray-400 text-sm mx-4">or</Text>
 						<View className="flex-1 h-px bg-gray-200" />
 					</View>
 
-					{/* SIGN IN LINK */}
 					<View className="flex-row justify-center mb-8">
 						<Text className="text-gray-500 text-sm">Already have an account? </Text>
 						<TouchableOpacity onPress={() => router.replace('/login' as Href)}>
@@ -151,7 +154,6 @@ export default function RegisterSelectScreen()
 						</TouchableOpacity>
 					</View>
 
-					{/* HELP BOX */}
 					<View className="flex-row bg-blue-600 rounded-2xl p-4 items-start">
 						<View className="w-9 h-9 bg-blue-500 rounded-xl items-center justify-center mr-3 mt-0.5">
 							<Text className="text-white text-base font-bold">?</Text>

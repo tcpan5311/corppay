@@ -16,7 +16,8 @@ async function seed()
 
 		const hash = await bcrypt.hash('Test123456', 12)
 
-		const created = await User.create({
+		const created = await User.create
+		({
 			email: 'tc.pan@corppay.com',
 			passwordHash: hash,
 			role: 'user',

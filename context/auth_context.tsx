@@ -8,15 +8,13 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL as string
 const ACCESS_TOKEN_KEY  = 'corppay_access_token'
 const REFRESH_TOKEN_KEY = 'corppay_refresh_token'
 
-// SecureStore (Keychain/Keystore) on native; AsyncStorage on web where SecureStore is unavailable.
 const useSecure = Platform.OS !== 'web'
-const tokenStore = {
+const tokenStore =
+{
 	get:    (key: string): Promise<string | null> => useSecure ? SecureStore.getItemAsync(key) : AsyncStorage.getItem(key),
 	set:    (key: string, value: string): Promise<void> => useSecure ? SecureStore.setItemAsync(key, value) : AsyncStorage.setItem(key, value),
 	remove: (key: string): Promise<void> => useSecure ? SecureStore.deleteItemAsync(key) : AsyncStorage.removeItem(key),
 }
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type UserRole = 'user' | 'admin'
 
@@ -38,25 +36,13 @@ type AuthContextValue =
 	logout:      () => Promise<void>
 }
 
-// ─── Factories ────────────────────────────────────────────────────────────────
-
 // Creates a fully initialized AuthUser with empty/zero defaults.
 function createAuthUser(): AuthUser
 {
-	return {
-		id:          '',
-		email:       '',
-		role:        '',
-		isActive:    false,
-		lastLoginAt: new Date(0).toISOString(),
-	}
+	return { id: '', email: '', role: '', isActive: false, lastLoginAt: new Date(0).toISOString() }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
-
 const AuthContext = createContext<AuthContextValue | null>(null)
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Extracts a validated AuthUser from a raw API response object, returning null when required fields are absent.
 function extractAuthUser(raw: Record<string, unknown>): AuthUser | null
@@ -85,8 +71,6 @@ function resolveRawUser(value: unknown): Record<string, unknown>
 	return {}
 }
 
-// ─── Session Restore ──────────────────────────────────────────────────────────
-
 type RestoredSession =
 {
 	user:        AuthUser | null
@@ -108,11 +92,15 @@ async function tryRestoreSession(): Promise<RestoredSession>
 
 	if (refresh === '') return result
 
-	const response = await fetch(`${API_BASE}/auth/refresh`, {
-		method:  'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body:    JSON.stringify({ refreshToken: refresh }),
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/auth/refresh`,
+		{
+			method:  'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body:    JSON.stringify({ refreshToken: refresh }),
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -127,7 +115,8 @@ async function tryRestoreSession(): Promise<RestoredSession>
 
 	if (user === null || newAccessToken === '' || newRefreshToken === '') return result
 
-	await Promise.all([
+	await Promise.all
+	([
 		tokenStore.set(ACCESS_TOKEN_KEY,  newAccessToken),
 		tokenStore.set(REFRESH_TOKEN_KEY, newRefreshToken),
 	])
@@ -137,8 +126,6 @@ async function tryRestoreSession(): Promise<RestoredSession>
 	return result
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 // Provides authentication state and login/logout actions to the component tree, restoring any persisted session on mount.
 export function AuthProvider({ children }: { children: React.ReactNode })
 {
@@ -146,38 +133,47 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 	const [accessToken, setAccessToken] = useState<string>('')
 	const [isLoading, setIsLoading]     = useState<boolean>(true)
 
-	useEffect(() =>
-	{
-		async function restoreOnMount(): Promise<void>
+	useEffect
+	(
+		() =>
 		{
-			try
+			// Restores any persisted session on mount and clears the loading flag when finished.
+			async function restoreOnMount(): Promise<void>
 			{
-				const session = await tryRestoreSession()
-				setUser(session.user)
-				setAccessToken(session.accessToken)
+				try
+				{
+					const session = await tryRestoreSession()
+					setUser(session.user)
+					setAccessToken(session.accessToken)
+				}
+				catch
+				{
+					setUser(null)
+					setAccessToken('')
+				}
+				finally
+				{
+					setIsLoading(false)
+				}
 			}
-			catch
-			{
-				setUser(null)
-				setAccessToken('')
-			}
-			finally
-			{
-				setIsLoading(false)
-			}
-		}
 
-		restoreOnMount()
-	}, [])
+			restoreOnMount()
+		},
+		[],
+	)
 
 	// Authenticates the user against the API, including company context for admin logins, and persists tokens on success.
 	async function login(email: string, password: string, role: UserRole, companyId: string): Promise<void>
 	{
-		const response = await fetch(`${API_BASE}/auth/login`, {
-			method:  'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email, password, role, companyId }),
-		})
+		const response = await fetch
+		(
+			`${API_BASE}/auth/login`,
+			{
+				method:  'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email, password, role, companyId }),
+			},
+		)
 
 		const data = await response.json() as Record<string, unknown>
 
@@ -196,7 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 			throw new Error('Received an invalid response from the server.')
 		}
 
-		await Promise.all([
+		await Promise.all
+		([
 			tokenStore.set(ACCESS_TOKEN_KEY,  newAccessToken),
 			tokenStore.set(REFRESH_TOKEN_KEY, newRefreshToken),
 		])
@@ -213,14 +210,19 @@ export function AuthProvider({ children }: { children: React.ReactNode })
 
 		if (refreshToken !== '' && accessToken !== '')
 		{
-			fetch(`${API_BASE}/auth/logout`, {
-				method:  'POST',
-				headers: {
-					'Content-Type':  'application/json',
-					'Authorization': `Bearer ${accessToken}`,
+			fetch
+			(
+				`${API_BASE}/auth/logout`,
+				{
+					method:  'POST',
+					headers:
+					{
+						'Content-Type':  'application/json',
+						'Authorization': `Bearer ${accessToken}`,
+					},
+					body: JSON.stringify({ refreshToken }),
 				},
-				body: JSON.stringify({ refreshToken }),
-			}).catch((_err: unknown) => { /* server logout is best-effort */ })
+			).catch((_err: unknown) => {})
 		}
 
 		await Promise.all([tokenStore.remove(ACCESS_TOKEN_KEY), tokenStore.remove(REFRESH_TOKEN_KEY)])

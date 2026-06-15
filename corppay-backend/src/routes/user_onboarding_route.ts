@@ -2,8 +2,6 @@ import { Request, Response, Router } from 'express'
 import { completeUserOnboarding, verifyUserOnboardingToken } from '../services/user_onboarding_service'
 import { validateAdminPassword } from '../validation/adminSetPasswordValidation'
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 const router = Router()
 
 // Returns token validity along with the associated email, role, and department for the given onboarding token.

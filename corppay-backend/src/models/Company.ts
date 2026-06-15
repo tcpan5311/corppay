@@ -59,16 +59,18 @@ export function createUploadedDocument(): IUploadedDocument
 	}
 }
 
-const DirectorSchema = new Schema<IDirector>(
+const DirectorSchema = new Schema<IDirector>
+(
 	{
 		icPassport:   { type: String, required: true, trim: true, default: null },
 		role:         { type: String, enum: ['director', 'owner'], required: true, default: null },
 		ownershipPct: { type: Number, min: 0, max: 100, required: true },
 	},
-	{ _id: false }
+	{ _id: false },
 )
 
-const UploadedDocumentSchema = new Schema<IUploadedDocument>(
+const UploadedDocumentSchema = new Schema<IUploadedDocument>
+(
 	{
 		fieldName:    { type: String, required: true, default: null },
 		originalName: { type: String, required: true, default: null },
@@ -77,10 +79,11 @@ const UploadedDocumentSchema = new Schema<IUploadedDocument>(
 		sizeBytes:    { type: Number, required: true, default: null },
 		uploadedAt:   { type: Date, default: null },
 	},
-	{ _id: false }
+	{ _id: false },
 )
 
-const CompanySchema = new Schema<ICompany>(
+const CompanySchema = new Schema<ICompany>
+(
 	{
 		name:              { type: String, required: true, trim: true },
 		ssmNumber:         { type: String, required: true, unique: true, trim: true, uppercase: true },
@@ -96,7 +99,7 @@ const CompanySchema = new Schema<ICompany>(
 		reviewNote:         { type: String, default: null },
 		resubmissionCount:  { type: Number, default: 0 },
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 )
 
 CompanySchema.index({ submittedBy: 1 })

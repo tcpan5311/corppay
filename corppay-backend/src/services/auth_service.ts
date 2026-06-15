@@ -14,8 +14,6 @@ const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string
 const MAX_ATTEMPTS  = 5
 const LOCK_DURATION = 15 * 60 * 1000
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type SafeLoginUser =
 {
 	id:          string
@@ -37,8 +35,6 @@ type TokenClaims =
 	sub:  string
 	role: string
 }
-
-// ─── Factories ────────────────────────────────────────────────────────────────
 
 // Creates a fully initialized SafeLoginUser with empty/zero defaults.
 function createSafeLoginUser(): SafeLoginUser
@@ -152,8 +148,6 @@ function createTokenClaims(): TokenClaims
 	return { sub: '', role: '' }
 }
 
-// ─── Builders ─────────────────────────────────────────────────────────────────
-
 // Constructs token claims from a regular user document.
 function claimsFromUser(user: IUser): TokenClaims
 {
@@ -217,8 +211,6 @@ function safeUserFromCompanyUser(member: ICompanyUser): SafeLoginUser
 	return safe
 }
 
-// ─── Token Utilities ──────────────────────────────────────────────────────────
-
 // Issues a signed JWT access token for the given claims.
 function issueAccessToken(claims: TokenClaims): string
 {
@@ -236,8 +228,6 @@ function hashToken(token: string): string
 {
 	return crypto.createHash('sha256').update(token).digest('hex')
 }
-
-// ─── Login ────────────────────────────────────────────────────────────────────
 
 // Authenticates a regular user, enforcing lockout policy, and returns a LoginResult.
 async function loginRegularUser(email: string, password: string): Promise<LoginResult>
@@ -398,7 +388,8 @@ async function loginCompanyUser(email: string, password: string, companyId: stri
 }
 
 // Dispatches the login request to the correct handler based on the requested role.
-export async function loginUser(
+export async function loginUser
+(
 	email:     string,
 	password:  string,
 	role:      'user' | 'admin',
@@ -410,16 +401,15 @@ export async function loginUser(
 	return loginRegularUser(email, password)
 }
 
-// ─── Refresh ──────────────────────────────────────────────────────────────────
-
 // Rotates the company user refresh token and returns a new LoginResult.
 async function refreshCompanyUserAccessToken(tokenHash: string): Promise<LoginResult>
 {
-	const member = await CompanyUser.findOneAndUpdate(
-			{ refreshTokens: tokenHash },
-			{ $pull: { refreshTokens: tokenHash } },
-			{ new: true },
-		).select('+refreshTokens')
+	const member = await CompanyUser.findOneAndUpdate
+	(
+		{ refreshTokens: tokenHash },
+		{ $pull: { refreshTokens: tokenHash } },
+		{ new: true },
+	).select('+refreshTokens')
 
 	if (member === null)
 	{
@@ -444,11 +434,12 @@ async function refreshCompanyUserAccessToken(tokenHash: string): Promise<LoginRe
 // Rotates the admin refresh token and returns a new LoginResult, falling back to the company user collection.
 async function refreshAdminAccessToken(tokenHash: string): Promise<LoginResult>
 {
-	const admin = await AdminUser.findOneAndUpdate(
-			{ refreshTokens: tokenHash },
-			{ $pull: { refreshTokens: tokenHash } },
-			{ new: true },
-		).select('+refreshTokens')
+	const admin = await AdminUser.findOneAndUpdate
+	(
+		{ refreshTokens: tokenHash },
+		{ $pull: { refreshTokens: tokenHash } },
+		{ new: true },
+	).select('+refreshTokens')
 
 	if (admin === null)
 	{
@@ -476,7 +467,8 @@ export async function refreshAccessToken(rawRefreshToken: string): Promise<Login
 const tokenHash = hashToken(rawRefreshToken)
 
 	// Atomically remove the presented token so concurrent/replayed refreshes cannot both succeed.
-	const user = await User.findOneAndUpdate(
+	const user = await User.findOneAndUpdate
+	(
 		{ refreshTokens: tokenHash },
 		{ $pull: { refreshTokens: tokenHash } },
 		{ new: true },
@@ -501,8 +493,6 @@ const tokenHash = hashToken(rawRefreshToken)
 	result.user         = safeUserFromUser(user)
 	return result
 }
-
-// ─── Logout ───────────────────────────────────────────────────────────────────
 
 // Removes the hashed refresh token from whichever collection owns the given userId.
 export async function logoutUser(userId: string, rawRefreshToken: string): Promise<void>

@@ -20,7 +20,8 @@ function createOnboardingTokenResult(): CreateOnboardingTokenResult
 }
 
 // Generates and persists a secure 24-hour onboarding token for the given company.
-export async function createOnboardingToken(
+export async function createOnboardingToken
+(
 	email:     string,
 	ssmNumber: string,
 	companyId: mongoose.Types.ObjectId,
@@ -92,7 +93,8 @@ export function createCompleteOnboardingResult(): CompleteOnboardingResult
 }
 
 // Hashes the password, creates the admin user record, and marks the onboarding token as consumed.
-export async function completeOnboarding(
+export async function completeOnboarding
+(
 	token:    string,
 	password: string,
 ): Promise<CompleteOnboardingResult>
@@ -100,7 +102,8 @@ export async function completeOnboarding(
 	const result  = createCompleteOnboardingResult()
 
 	// Atomically claim the token (pending + unexpired) so it can only be consumed once.
-	const pending = await OnboardingToken.findOneAndUpdate(
+	const pending = await OnboardingToken.findOneAndUpdate
+	(
 		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'used' },
 		{ new: false },
@@ -121,7 +124,8 @@ export async function completeOnboarding(
 
 	const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS)
 
-	await AdminUser.create({
+	await AdminUser.create
+	({
 		email:        pending.email.toLowerCase(),
 		passwordHash,
 		ssmNumber:    pending.ssmNumber.trim().toUpperCase(),

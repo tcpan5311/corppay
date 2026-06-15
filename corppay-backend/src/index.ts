@@ -15,10 +15,8 @@ import userRoutes from './routes/user_route'
 
 dotenv.config()
 
-dotenv.config()
-
-// Fail fast if any required secret is missing — never start with insecure defaults.
-const REQUIRED_ENV = [
+const REQUIRED_ENV = 
+[
 	'JWT_ACCESS_SECRET',
 	'JWT_REFRESH_SECRET',
 	'ADMIN_REVIEW_TOKEN',
@@ -26,6 +24,7 @@ const REQUIRED_ENV = [
 	'ADMIN_TOTP_SECRET',
 	'MONGODB_URI',
 ]
+
 for (const key of REQUIRED_ENV)
 {
 	const value = process.env[key]
@@ -36,7 +35,6 @@ for (const key of REQUIRED_ENV)
 	}
 }
 
-// Comma-separated allowlist of permitted web origins.
 const rawAllowedOrigins = process.env.CORS_ALLOWED_ORIGINS
 const allowedOriginsValue = rawAllowedOrigins === undefined ? '' : rawAllowedOrigins
 const ALLOWED_ORIGINS = allowedOriginsValue
@@ -46,27 +44,29 @@ const ALLOWED_ORIGINS = allowedOriginsValue
 
 const app = express()
 
-// Trust the first proxy hop so req.ip reflects the real client behind a load balancer/CDN.
 app.set('trust proxy', 1)
 
 app.use(helmet())
-app.use(cors({
-	origin: (origin, callback) =>
-	{
-		// Allow non-browser clients (no Origin header) and any explicitly allow-listed origin.
-		if (origin === undefined || ALLOWED_ORIGINS.includes(origin))
+app.use
+(
+	cors
+	({
+		origin: (origin, callback) =>
 		{
-			callback(null, true)
-			return
-		}
-		callback(new Error('Origin not allowed by CORS policy.'))
-	},
-}))
+			if (origin === undefined || ALLOWED_ORIGINS.includes(origin))
+			{
+				callback(null, true)
+				return
+			}
+			callback(new Error('Origin not allowed by CORS policy.'))
+		},
+	})
+)
 
 app.use(express.json())
 app.use('/auth', authRoutes)
 app.use('/companies', companyRoutes)
-app.use('/admin/review', adminRoutes)   
+app.use('/admin/review', adminRoutes)
 app.use('/onboarding', onboardingRoutes)
 app.use('/resubmit', resubmitRoutes)
 app.use('/users', userRoutes)
@@ -74,20 +74,28 @@ app.use('/user-onboarding', userOnboardingRoutes)
 app.use('/user-resubmit', userResubmitRoutes)
 app.use('/portal', portalRoutes)
 
-
-app.get('/', (request, response) =>
-{
-	response.json({ message: 'Corppay API running 🚀' })
-})
+// Responds to the root health-check route with a simple running-status message.
+app.get
+(
+	'/',
+	(request, response) =>
+	{
+		response.json({ message: 'Corppay API running 🚀' })
+	},
+)
 
 // Returns a JSON 404 for any route no handler above matched.
-app.use((request, response) =>
-{
-	response.status(404).json({ error: 'Not found' })
-})
+app.use
+(
+	(request, response) =>
+	{
+		response.status(404).json({ error: 'Not found' })
+	},
+)
 
 const PORT = process.env.PORT || 5000
 
+// Connects to MongoDB and starts the HTTP server, exiting the process on connection failure.
 async function startServer()
 {
 	try
@@ -96,10 +104,14 @@ async function startServer()
 
 		console.log('✅ MongoDB connected')
 
-		app.listen(PORT, () =>
-		{
-			console.log(`🚀 Server running on http://localhost:${PORT}`)
-		})
+		app.listen
+		(
+			PORT,
+			() =>
+			{
+				console.log(`🚀 Server running on http://localhost:${PORT}`)
+			},
+		)
 	}
 	catch (error)
 	{

@@ -2,23 +2,17 @@ import { Request, Response, Router } from 'express'
 import { validateAdminPassword } from '../../../corppay-backend/src/validation/adminSetPasswordValidation'
 import { completeOnboarding, verifyOnboardingToken } from '../services/admin_onboarding_service'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type SetPasswordBody =
 {
 	token:    string
 	password: string
 }
 
-// ─── Factories ────────────────────────────────────────────────────────────────
-
 // Creates a fully initialized SetPasswordBody with empty string defaults.
 function createSetPasswordBody(): SetPasswordBody
 {
 	return { token: '', password: '' }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Extracts and normalizes the token and password fields from an unknown request body.
 function extractSetPasswordBody(body: Record<string, unknown>): SetPasswordBody
@@ -28,8 +22,6 @@ function extractSetPasswordBody(body: Record<string, unknown>): SetPasswordBody
 	result.password = typeof body['password'] === 'string' ? body['password']        : ''
 	return result
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = Router()
 
@@ -78,8 +70,6 @@ router.post('/set-password', async (req: Request, res: Response) =>
 	{
 		return res.status(400).json({ error: passwordError })
 	}
-	// ────────────────────────────────────────────────────────────────────────
-
 	try
 	{
 		const result = await completeOnboarding(token, password)

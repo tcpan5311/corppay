@@ -3,23 +3,22 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+	ActivityIndicator,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View
 } from 'react-native'
 import {
-  validateLoginEmail,
-  validateLoginPassword
+	validateLoginEmail,
+	validateLoginPassword
 } from '../corppay-backend/src/validation/loginValidation'
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type LoginPhase = 'email' | 'company_select' | 'password'
 
@@ -47,17 +46,20 @@ function createLookupCompaniesResponse(): LookupCompaniesResponse
 	return { found: false, companies: [] }
 }
 
-// ─── API ──────────────────────────────────────────────────────────────────────
 
 // Calls the lookup endpoint and returns the list of companies associated with the given admin email.
 async function fetchAdminCompanyLookup(email: string): Promise<LookupCompaniesResponse>
 {
 	const result   = createLookupCompaniesResponse()
-	const response = await fetch(`${API_BASE}/auth/lookup`, {
-		method:  'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body:    JSON.stringify({ email }),
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/auth/lookup`,
+		{
+			method:  'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body:    JSON.stringify({ email }),
+		},
+	)
 	const data = await response.json() as Record<string, unknown>
 
 	if (!response.ok) return result
@@ -74,11 +76,15 @@ async function fetchAdminCompanyLookup(email: string): Promise<LookupCompaniesRe
 async function fetchUserCompanyLookup(email: string): Promise<LookupCompaniesResponse>
 {
 	const result   = createLookupCompaniesResponse()
-	const response = await fetch(`${API_BASE}/auth/lookup-user`, {
-		method:  'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body:    JSON.stringify({ email }),
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/auth/lookup-user`,
+		{
+			method:  'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body:    JSON.stringify({ email }),
+		},
+	)
 	const data = await response.json() as Record<string, unknown>
 
 	if (!response.ok) return result
@@ -119,7 +125,8 @@ export default function LoginScreen()
 
 	const isEmailContinueReady = emailValidation    === null && !isLookingUp
 
-	const isPasswordReady = (
+	const isPasswordReady =
+	(
 		passwordValidation === null &&
 		!isSubmitting &&
 		selectedCompanyId !== ''
@@ -148,16 +155,11 @@ export default function LoginScreen()
 		}
 	}
 
-	const tabButtonBase =
-		"flex-1 flex-row items-center justify-center py-2.5 rounded-full"
+	const tabButtonBase = "flex-1 flex-row items-center justify-center py-2.5 rounded-full"
 
-	const activeTabStyle = {
-		backgroundColor: 'white'
-	}
+	const activeTabStyle = { backgroundColor: 'white' }
 
-	const inactiveTabStyle = {
-		backgroundColor: 'transparent'
-	}
+	const inactiveTabStyle = { backgroundColor: 'transparent' }
 
 	const activeText = "text-sm font-medium text-gray-800"
 	const inactiveText = "text-sm font-medium text-gray-400"
@@ -202,7 +204,8 @@ export default function LoginScreen()
 
 			if (!result.found || result.companies.length === 0)
 			{
-				setLookupError(
+				setLookupError
+				(
 					activeTab === 'admin'
 						? 'No admin account found for this email address.'
 						: 'No user account found for this email address.'
@@ -245,7 +248,6 @@ export default function LoginScreen()
 					contentContainerStyle={{ flexGrow: 1 }}
 					keyboardShouldPersistTaps="handled"
 				>
-					{/* HEADER */}
 					<View className="bg-blue-600 rounded-b-3xl px-6 pt-14 pb-12 overflow-hidden">
 						<View className="absolute top-4 right-4 w-32 h-32 rounded-full bg-blue-500 opacity-40" />
 						<View className="absolute top-16 right-16 w-20 h-20 rounded-full bg-blue-400 opacity-30" />
@@ -267,11 +269,10 @@ export default function LoginScreen()
 						</Text>
 					</View>
 
-					{/* BODY */}
 					<View className="flex-1 px-6 pt-8 pb-6">
 
-						{/* TAB SWITCHER — only visible in email phase */}
-						{loginPhase === 'email' && (
+						{loginPhase === 'email' &&
+						(
 							<View className="flex-row bg-gray-100 rounded-full p-1 mb-8">
 								<TouchableOpacity
 									style={activeTab === 'user' ? activeTabStyle : inactiveTabStyle}
@@ -303,8 +304,8 @@ export default function LoginScreen()
 							</View>
 						)}
 
-						{/* ── EMAIL PHASE ── */}
-						{loginPhase === 'email' && (
+						{loginPhase === 'email' &&
+						(
 							<>
 								<View className="mb-5">
 									<Text className="text-gray-700 text-sm font-medium mb-2">Email Address</Text>
@@ -316,14 +317,22 @@ export default function LoginScreen()
 											placeholder="Enter your email"
 											placeholderTextColor="#9CA3AF"
 											value={email}
-											onChangeText={(v) => { setEmail(v); if (emailTouched) setEmailTouched(true) }}
+											onChangeText=
+											{
+												(v) =>
+												{
+													setEmail(v)
+													if (emailTouched) setEmailTouched(true)
+												}
+											}
 											onBlur={() => setEmailTouched(true)}
 											keyboardType="email-address"
 											autoCapitalize="none"
 											autoCorrect={false}
 										/>
 									</View>
-									{emailError !== '' && (
+									{emailError !== '' &&
+									(
 										<View className="flex-row items-center mt-1 ml-1">
 											<MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
 											<Text className="text-red-600 text-xs flex-1" accessibilityRole="alert">{emailError}</Text>
@@ -331,7 +340,8 @@ export default function LoginScreen()
 									)}
 								</View>
 
-								{lookupError !== '' && (
+								{lookupError !== '' &&
+								(
 									<View className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 										<MaterialCommunityIcons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 1 }} />
 										<Text className="text-red-600 text-sm flex-1">{lookupError}</Text>
@@ -360,8 +370,8 @@ export default function LoginScreen()
 							</>
 						)}
 
-						{/* ── COMPANY SELECT PHASE (user and admin) ── */}
-						{loginPhase === 'company_select' && (
+						{loginPhase === 'company_select' &&
+						(
 							<>
 								<View className="mb-5 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl flex-row items-center">
 									<MaterialCommunityIcons name="email-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
@@ -370,38 +380,49 @@ export default function LoginScreen()
 
 								<Text className="text-gray-700 text-sm font-medium mb-3">Select Company</Text>
 
-								{companies.map((company) => (
-									<TouchableOpacity
-										key={company.companyId}
-										onPress={() => handleSelectCompany(company.companyId, company.companyName)}
-										className={`border rounded-xl px-4 py-3.5 mb-2 flex-row items-center ${
-											selectedCompanyId === company.companyId
-												? 'border-blue-500 bg-blue-50'
-												: 'border-gray-200 bg-gray-50'
-										}`}
-									>
-										<MaterialCommunityIcons
-											name="office-building-outline"
-											size={18}
-											color={selectedCompanyId === company.companyId ? '#2563EB' : '#9CA3AF'}
-											style={{ marginRight: 10 }}
-										/>
-										<Text className={`flex-1 text-sm font-medium ${
-											selectedCompanyId === company.companyId ? 'text-blue-700' : 'text-gray-700'
-										}`}>
-											{company.companyName}
-										</Text>
-										{selectedCompanyId === company.companyId && (
-											<MaterialCommunityIcons name="check-circle" size={18} color="#2563EB" />
-										)}
-									</TouchableOpacity>
-								))}
+								{companies.map
+								(
+									(company) =>
+									(
+										<TouchableOpacity
+											key={company.companyId}
+											onPress={() => handleSelectCompany(company.companyId, company.companyName)}
+											className={`border rounded-xl px-4 py-3.5 mb-2 flex-row items-center ${
+												selectedCompanyId === company.companyId
+													? 'border-blue-500 bg-blue-50'
+													: 'border-gray-200 bg-gray-50'
+											}`}
+										>
+											<MaterialCommunityIcons
+												name="office-building-outline"
+												size={18}
+												color={selectedCompanyId === company.companyId ? '#2563EB' : '#9CA3AF'}
+												style={{ marginRight: 10 }}
+											/>
+											<Text className={`flex-1 text-sm font-medium ${
+												selectedCompanyId === company.companyId ? 'text-blue-700' : 'text-gray-700'
+											}`}>
+												{company.companyName}
+											</Text>
+											{selectedCompanyId === company.companyId &&
+											(
+												<MaterialCommunityIcons name="check-circle" size={18} color="#2563EB" />
+											)}
+										</TouchableOpacity>
+									)
+								)}
 
 								<TouchableOpacity
 									className={`rounded-2xl py-4 items-center mt-4 mb-3 shadow-md ${
 										selectedCompanyId !== '' ? 'bg-blue-600 shadow-blue-300' : 'bg-gray-300 shadow-gray-200'
 									}`}
-									onPress={() => { if (selectedCompanyId !== '') setLoginPhase('password') }}
+									onPress=
+									{
+										() =>
+										{
+											if (selectedCompanyId !== '') setLoginPhase('password')
+										}
+									}
 									disabled={selectedCompanyId === ''}
 								>
 									<Text className={`text-base font-semibold tracking-wide ${selectedCompanyId !== '' ? 'text-white' : 'text-gray-400'}`}>
@@ -415,15 +436,16 @@ export default function LoginScreen()
 							</>
 						)}
 
-						{/* ── PASSWORD PHASE ── */}
-						{loginPhase === 'password' && (
+						{loginPhase === 'password' &&
+						(
 							<>
 								<View className="mb-4 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl flex-row items-center">
 									<MaterialCommunityIcons name="email-outline" size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
 									<Text className="text-gray-600 text-sm flex-1" numberOfLines={1}>{email}</Text>
 								</View>
 
-								{selectedCompanyName !== '' && (
+								{selectedCompanyName !== '' &&
+								(
 									<View className="mb-4 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl flex-row items-center">
 										<MaterialCommunityIcons name="office-building-outline" size={16} color="#2563EB" style={{ marginRight: 8 }} />
 										<Text className="text-blue-700 text-sm flex-1 font-medium" numberOfLines={1}>{selectedCompanyName}</Text>
@@ -440,7 +462,14 @@ export default function LoginScreen()
 											placeholder="Enter your password"
 											placeholderTextColor="#9CA3AF"
 											value={password}
-											onChangeText={(v) => { setPassword(v); if (passwordTouched) setPasswordTouched(true) }}
+											onChangeText=
+											{
+												(v) =>
+												{
+													setPassword(v)
+													if (passwordTouched) setPasswordTouched(true)
+												}
+											}
 											onBlur={() => setPasswordTouched(true)}
 											secureTextEntry={!showPassword}
 											autoCapitalize="none"
@@ -454,7 +483,8 @@ export default function LoginScreen()
 											/>
 										</TouchableOpacity>
 									</View>
-									{passwordError !== '' && (
+									{passwordError !== '' &&
+									(
 										<View className="flex-row items-center mt-1 ml-1">
 											<MaterialCommunityIcons name="alert-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
 											<Text className="text-red-600 text-xs flex-1" accessibilityRole="alert">{passwordError}</Text>
@@ -462,7 +492,8 @@ export default function LoginScreen()
 									)}
 								</View>
 
-								{submitError !== '' && (
+								{submitError !== '' &&
+								(
 									<View className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 										<MaterialCommunityIcons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 1 }} />
 										<Text className="text-red-600 text-sm flex-1">{submitError}</Text>
@@ -476,7 +507,8 @@ export default function LoginScreen()
 								</View>
 
 								<TouchableOpacity
-									className={`rounded-2xl py-4 items-center mb-4 shadow-md ${
+									className={`rounded-2xl py-4 items-center mb-4 shadow-md 
+									${
 										isPasswordReady ? 'bg-blue-600 shadow-blue-300' : 'bg-gray-300 shadow-gray-200'
 									}`}
 									onPress={handleLogin}
@@ -488,13 +520,19 @@ export default function LoginScreen()
 									}
 								</TouchableOpacity>
 
-								<TouchableOpacity className="items-center py-2" onPress={() =>
-								{
-									setLoginPhase(companies.length > 1 ? 'company_select' : 'email')
-									setSubmitError('')
-									setPassword('')
-									setPasswordTouched(false)
-								}}>
+								<TouchableOpacity
+									className="items-center py-2"
+									onPress=
+									{
+										() =>
+										{
+											setLoginPhase(companies.length > 1 ? 'company_select' : 'email')
+											setSubmitError('')
+											setPassword('')
+											setPasswordTouched(false)
+										}
+									}
+								>
 									<Text className="text-gray-500 text-sm">Back</Text>
 								</TouchableOpacity>
 							</>

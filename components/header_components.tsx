@@ -2,13 +2,13 @@ import { useAuth } from '@/context/auth_context'
 import { Ionicons } from '@expo/vector-icons'
 import React, { useState } from 'react'
 import {
-  Alert,
-  Modal,
-  Platform,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+	Alert,
+	Modal,
+	Platform,
+	Text,
+	TouchableOpacity,
+	TouchableWithoutFeedback,
+	View,
 } from 'react-native'
 
 // Derives up-to-two-letter uppercase initials from an email local-part, falling back to "CP".
@@ -57,13 +57,14 @@ export default function HeaderBar(): React.JSX.Element
 		}
 		else
 		{
-			Alert.alert(
+			Alert.alert
+			(
 				displayName,
 				emailLabel,
 				[
 					{ text: 'Cancel', style: 'cancel' },
 					{ text: 'Sign Out', style: 'destructive', onPress: logout },
-				]
+				],
 			)
 		}
 	}
@@ -76,7 +77,6 @@ export default function HeaderBar(): React.JSX.Element
 			</TouchableOpacity>
 
 			<TouchableOpacity className="flex-row items-center gap-2" onPress={handleAvatarPress}>
-				{/* Avatar — always initials-based since backend has no picture field */}
 				<View className="w-9 h-9 rounded-full bg-[#3B82F6] justify-center items-center">
 					<Text className="text-white text-sm font-bold">{initials}</Text>
 				</View>
@@ -94,8 +94,8 @@ export default function HeaderBar(): React.JSX.Element
 				</View>
 			</TouchableOpacity>
 
-			{/* Web-only sign-out action sheet */}
-			{Platform.OS === 'web' && (
+			{Platform.OS === 'web' &&
+			(
 				<Modal
 					visible={menuVisible}
 					transparent
@@ -119,7 +119,14 @@ export default function HeaderBar(): React.JSX.Element
 											</View>
 
 											<TouchableOpacity
-												onPress={() => { setMenuVisible(false); logout() }}
+												onPress=
+												{
+													() =>
+													{
+														setMenuVisible(false)
+														logout()
+													}
+												}
 												className="py-[18px] items-center"
 												activeOpacity={0.6}
 											>

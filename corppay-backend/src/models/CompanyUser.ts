@@ -19,7 +19,8 @@ export interface ICompanyUser extends Document
 	comparePassword(candidate: string): Promise<boolean>
 }
 
-const CompanyUserSchema = new Schema<ICompanyUser>(
+const CompanyUserSchema = new Schema<ICompanyUser>
+(
 	{
 		email:         { type: String,   required: true, lowercase: true, trim: true },
 		passwordHash:  { type: String,   required: true,  select: false },

@@ -15,7 +15,8 @@ export interface IOnboardingToken extends Document
 }
 
 // Builds an unsaved onboarding token document expiring 24 hours from now.
-export function buildOnboardingTokenDoc(
+export function buildOnboardingTokenDoc
+(
 	token:     string,
 	email:     string,
 	ssmNumber: string,
@@ -35,7 +36,8 @@ export function buildOnboardingTokenDoc(
 	} as Omit<IOnboardingToken, keyof Document>
 }
 
-const OnboardingTokenSchema = new Schema<IOnboardingToken>(
+const OnboardingTokenSchema = new Schema<IOnboardingToken>
+(
 	{
 		token:     { type: String, required: true, unique: true, index: true },
 		email:     { type: String, required: true },
@@ -44,7 +46,7 @@ const OnboardingTokenSchema = new Schema<IOnboardingToken>(
 		status:    { type: String, enum: ['pending', 'used'], default: 'pending' },
 		expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 )
 
 export default mongoose.model<IOnboardingToken>('OnboardingToken', OnboardingTokenSchema)

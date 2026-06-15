@@ -21,7 +21,8 @@ export interface IPendingRegistration extends Document
 }
 
 // Creates a pending registration document expiring 15 minutes from now with the given token.
-export function buildPendingRegistrationDoc(
+export function buildPendingRegistrationDoc
+(
 	token:             string,
 	name:              string,
 	ssmNumber:         string,
@@ -49,16 +50,18 @@ export function buildPendingRegistrationDoc(
 	} as Omit<IPendingRegistration, keyof Document>
 }
 
-const DirectorSubSchema = new Schema<IDirector>(
+const DirectorSubSchema = new Schema<IDirector>
+(
 	{
 		icPassport:   { type: String, default: null },
 		role:         { type: String, enum: ['director', 'owner'], default: null },
 		ownershipPct: { type: Number, min: 0, max: 100, required: true },
 	},
-	{ _id: false }
+	{ _id: false },
 )
 
-const UploadedDocSubSchema = new Schema<IUploadedDocument>(
+const UploadedDocSubSchema = new Schema<IUploadedDocument>
+(
 	{
 		fieldName:    { type: String, default: null },
 		originalName: { type: String, default: null },
@@ -67,10 +70,11 @@ const UploadedDocSubSchema = new Schema<IUploadedDocument>(
 		sizeBytes:    { type: Number, default: null },
 		uploadedAt:   { type: Date,   default: null },
 	},
-	{ _id: false }
+	{ _id: false },
 )
 
-const PendingRegistrationSchema = new Schema<IPendingRegistration>(
+const PendingRegistrationSchema = new Schema<IPendingRegistration>
+(
 	{
 		token:             { type: String, required: true, unique: true, index: true },
 		expiresAt:         { type: Date,   required: true, index: { expireAfterSeconds: 0 } },
@@ -83,7 +87,7 @@ const PendingRegistrationSchema = new Schema<IPendingRegistration>(
 		director:          { type: DirectorSubSchema,      required: true },
 		documents:         { type: [UploadedDocSubSchema], default: [] },
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 )
 
 export default mongoose.model<IPendingRegistration>('PendingRegistration', PendingRegistrationSchema)

@@ -5,6 +5,7 @@ import mongoose from 'mongoose'
 import Company from '../models/Company'
 import User from '../models/User'
 
+// Seeds a mock approved-pending company registration tied to the seed user and logs the created record.
 async function seed()
 {
 	try
@@ -14,26 +15,30 @@ async function seed()
 
 		const user = await User.findOne({ email: 'tc.pan@corppay.com' })
 
-		if (!user)
+		if (user === null)
 		{
-			throw new Error(
+			throw new Error
+			(
 				'Seed user not found. Run seed_user.ts first to create tc.pan@corppay.com.'
 			)
 		}
 
 		await Company.deleteOne({ ssmNumber: 'MOCK202301234567' })
 
-		const company = await Company.create({
+		const company = await Company.create
+		({
 			name: 'CorpPay Sdn Bhd',
 			ssmNumber: 'MOCK202301234567',
 			entityType: 'sdn_bhd',
 			registeredAddress: 'Unit 12-3, Menara CorpPay, Jalan Sultan Ismail, 50250 Kuala Lumpur, Malaysia',
-			director: {
+			director:
+			{
 				icPassport: '850101-14-1234',
 				role: 'director',
 				ownershipPct: 100,
 			},
-			documents: [
+			documents:
+			[
 				{
 					fieldName: 'ssm_cert',
 					originalName: 'ssm_certificate.pdf',
@@ -60,8 +65,10 @@ async function seed()
 
 		const allCompanies = await Company.find()
 		console.log(`\n📋 Total companies in DB: ${allCompanies.length}`)
-		allCompanies.forEach((c, i) =>
-			console.log(`  [${i + 1}] ${c.name} (${c.ssmNumber}) — status: ${c.status}`)
+		allCompanies.forEach
+		(
+			(c, i) =>
+				console.log(`  [${i + 1}] ${c.name} (${c.ssmNumber}) — status: ${c.status}`)
 		)
 	}
 	catch (err)

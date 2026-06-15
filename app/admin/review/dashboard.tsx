@@ -14,8 +14,6 @@ import {
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
-// ─── Domain types ─────────────────────────────────────────────────────────────
-
 type DirectorRecord =
 {
 	icPassport:   string | null
@@ -146,8 +144,6 @@ function createCompanyCardProps(): CompanyCardProps
 	}
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 // Reads the admin token stored on the global object, returning an empty string when absent.
 function resolveAdminToken(): string
 {
@@ -234,14 +230,16 @@ function resolveErrorMessage(e: unknown): string
 	return 'An unexpected error occurred.'
 }
 
-// ─── API ──────────────────────────────────────────────────────────────────────
-
 // Fetches all company records from the admin API using the given token.
 async function fetchCompanies(token: string): Promise<CompanyRecord[]>
 {
-	const response = await fetch(`${API_BASE}/admin/review/companies`, {
-		headers: { 'x-admin-token': token },
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/admin/review/companies`,
+		{
+			headers: { 'x-admin-token': token },
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -259,9 +257,13 @@ async function fetchCompanies(token: string): Promise<CompanyRecord[]>
 // Fetches a document file by filename and returns a blob object URL for inline display.
 async function fetchDocumentBlob(token: string, filename: string): Promise<string>
 {
-	const response = await fetch(`${API_BASE}/admin/review/file/${filename}`, {
-		headers: { 'x-admin-token': token },
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/admin/review/file/${filename}`,
+		{
+			headers: { 'x-admin-token': token },
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -275,10 +277,14 @@ async function fetchDocumentBlob(token: string, filename: string): Promise<strin
 // Approves a company registration and triggers the onboarding email dispatch.
 async function approveCompany(token: string, companyId: string): Promise<void>
 {
-	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/approve`, {
-		method:  'POST',
-		headers: { 'x-admin-token': token },
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/admin/review/companies/${companyId}/approve`,
+		{
+			method:  'POST',
+			headers: { 'x-admin-token': token },
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -291,14 +297,19 @@ async function approveCompany(token: string, companyId: string): Promise<void>
 // Rejects a company registration and persists the supplied review note on the server.
 async function rejectCompany(token: string, companyId: string, reviewNote: string): Promise<void>
 {
-	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/reject`, {
-		method:  'POST',
-		headers: {
-			'x-admin-token': token,
-			'Content-Type':  'application/json',
+	const response = await fetch
+	(
+		`${API_BASE}/admin/review/companies/${companyId}/reject`,
+		{
+			method:  'POST',
+			headers:
+			{
+				'x-admin-token': token,
+				'Content-Type':  'application/json',
+			},
+			body: JSON.stringify({ reviewNote }),
 		},
-		body: JSON.stringify({ reviewNote }),
-	})
+	)
 
 	if (!response.ok)
 	{
@@ -311,10 +322,14 @@ async function rejectCompany(token: string, companyId: string, reviewNote: strin
 // Transitions a rejected company back to awaiting_resubmit and dispatches the resubmission invitation email.
 async function reenableCompany(token: string, companyId: string): Promise<void>
 {
-	const response = await fetch(`${API_BASE}/admin/review/companies/${companyId}/reenable`, {
-		method:  'POST',
-		headers: { 'x-admin-token': token },
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/admin/review/companies/${companyId}/reenable`,
+		{
+			method:  'POST',
+			headers: { 'x-admin-token': token },
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -323,8 +338,6 @@ async function reenableCompany(token: string, companyId: string): Promise<void>
 		throw new Error(msg)
 	}
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Renders a statistics summary card showing a label, count, and accent color.
 function StatsCard(props: StatsCardProps)
@@ -421,7 +434,6 @@ function CompanyCard(props: CompanyCardProps)
 	return (
 		<View className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-hidden">
 
-			{/* Card header */}
 			<View className="px-5 py-4 border-b border-gray-100 flex-row items-start justify-between">
 				<View className="flex-1 mr-3">
 					<Text className="text-gray-900 text-base font-bold" numberOfLines={1}>
@@ -441,7 +453,6 @@ function CompanyCard(props: CompanyCardProps)
 
 			<View className="px-5 py-4">
 
-				{/* Company information */}
 				<View className="mb-4">
 					<View className="flex-row items-center mb-3">
 						<View className="w-6 h-6 bg-blue-50 rounded-lg items-center justify-center mr-2">
@@ -458,7 +469,6 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 				</View>
 
-				{/* Director information */}
 				<View className="mb-4">
 					<View className="flex-row items-center mb-3">
 						<View className="w-6 h-6 bg-purple-50 rounded-lg items-center justify-center mr-2">
@@ -487,8 +497,8 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 				</View>
 
-				{/* Documents */}
-				{company.documents.length > 0 && (
+				{company.documents.length > 0 &&
+				(
 					<View>
 						<View className="flex-row items-center mb-3">
 							<View className="w-6 h-6 bg-green-50 rounded-lg items-center justify-center mr-2">
@@ -497,7 +507,8 @@ function CompanyCard(props: CompanyCardProps)
 							<Text className="text-gray-700 text-sm font-semibold">Documents</Text>
 						</View>
 
-						{company.documents.map(
+						{company.documents.map
+						(
 							(doc, idx) =>
 							{
 								const filename = extractFilename(doc.storagePath)
@@ -522,7 +533,8 @@ function CompanyCard(props: CompanyCardProps)
 											</Text>
 										</View>
 
-										{isWeb && filename !== '' && (
+										{isWeb && filename !== '' &&
+										(
 											<TouchableOpacity
 												onPress={() => onPreviewDoc(doc, adminToken)}
 												className="bg-blue-600 rounded-xl px-3 py-2 flex-row items-center"
@@ -540,7 +552,8 @@ function CompanyCard(props: CompanyCardProps)
 											</TouchableOpacity>
 										)}
 
-										{!isWeb && filename !== '' && (
+										{!isWeb && filename !== '' &&
+										(
 											<View className="bg-gray-200 rounded-xl px-3 py-2">
 												<Text className="text-gray-500 text-xs">Web only</Text>
 											</View>
@@ -552,20 +565,20 @@ function CompanyCard(props: CompanyCardProps)
 					</View>
 				)}
 
-				{/* Review note */}
-				{company.reviewNote !== null && (
+				{company.reviewNote !== null &&
+				(
 					<View className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
 						<Text className="text-amber-700 text-xs font-semibold mb-1">Review Note</Text>
 						<Text className="text-amber-800 text-sm">{company.reviewNote}</Text>
 					</View>
 				)}
 
-				{/* Approve and Reject actions — only shown for pending submissions */}
-				{company.status === 'pending' && (
+				{company.status === 'pending' &&
+				(
 					<View className="mt-4">
 
-						{/* Approve */}
-						{approveError !== '' && (
+						{approveError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons
 									name="alert-circle-outline"
@@ -586,27 +599,27 @@ function CompanyCard(props: CompanyCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Approve registration"
 						>
-							{isApproving ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons
-										name="check-circle-outline"
-										size={16}
-										color="#FFFFFF"
-										style={{ marginRight: 6 }}
-									/>
-									<Text className="text-white text-sm font-semibold">
-										Approve Registration
-									</Text>
-								</>
-							)}
+							{isApproving
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons
+											name="check-circle-outline"
+											size={16}
+											color="#FFFFFF"
+											style={{ marginRight: 6 }}
+										/>
+										<Text className="text-white text-sm font-semibold">
+											Approve Registration
+										</Text>
+									</>
+								)}
 						</TouchableOpacity>
 
-						{/* Divider */}
 						<View className="border-t border-gray-100 mb-4" />
 
-						{/* Reject note input */}
 						<Text className="text-gray-400 text-xs uppercase tracking-wide mb-1.5">
 							Rejection Reason (optional)
 						</Text>
@@ -622,8 +635,8 @@ function CompanyCard(props: CompanyCardProps)
 							style={{ textAlignVertical: 'top' }}
 						/>
 
-						{/* Reject error */}
-						{rejectError !== '' && (
+						{rejectError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons
 									name="alert-circle-outline"
@@ -635,7 +648,6 @@ function CompanyCard(props: CompanyCardProps)
 							</View>
 						)}
 
-						{/* Reject button */}
 						<TouchableOpacity
 							onPress={handleReject}
 							disabled={isRejecting || isApproving}
@@ -646,30 +658,33 @@ function CompanyCard(props: CompanyCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Reject registration"
 						>
-							{isRejecting ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons
-										name="close-circle-outline"
-										size={16}
-										color="#FFFFFF"
-										style={{ marginRight: 6 }}
-									/>
-									<Text className="text-white text-sm font-semibold">
-										Reject Registration
-									</Text>
-								</>
-							)}
+							{isRejecting
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons
+											name="close-circle-outline"
+											size={16}
+											color="#FFFFFF"
+											style={{ marginRight: 6 }}
+										/>
+										<Text className="text-white text-sm font-semibold">
+											Reject Registration
+										</Text>
+									</>
+								)}
 						</TouchableOpacity>
 
 					</View>
 				)}
 
-				{/* Re-enable action — only shown for rejected applications */}
-				{company.status === 'rejected' && (
+				{company.status === 'rejected' &&
+				(
 					<View className="mt-4">
-						{reenableError !== '' && (
+						{reenableError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons
 									name="alert-circle-outline"
@@ -690,21 +705,23 @@ function CompanyCard(props: CompanyCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Re-enable application for resubmission"
 						>
-							{isReenabling ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons
-										name="refresh"
-										size={16}
-										color="#FFFFFF"
-										style={{ marginRight: 6 }}
-									/>
-									<Text className="text-white text-sm font-semibold">
-										Re-enable for Resubmission
-									</Text>
-								</>
-							)}
+							{isReenabling
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons
+											name="refresh"
+											size={16}
+											color="#FFFFFF"
+											style={{ marginRight: 6 }}
+										/>
+										<Text className="text-white text-sm font-semibold">
+											Re-enable for Resubmission
+										</Text>
+									</>
+								)}
 						</TouchableOpacity>
 					</View>
 				)}
@@ -713,8 +730,6 @@ function CompanyCard(props: CompanyCardProps)
 		</View>
 	)
 }
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 // Renders the admin review dashboard displaying all company registrations with document preview support.
 export default function AdminDashboardScreen()
@@ -824,7 +839,6 @@ export default function AdminDashboardScreen()
 	return (
 		<View className="flex-1 bg-[#F9FAFB]">
 
-			{/* Header */}
 			<View className="bg-gray-900 px-6 pt-12 pb-5 flex-row items-center justify-between">
 				<View>
 					<Text className="text-white text-xl font-bold">Admin Review</Text>
@@ -868,7 +882,6 @@ export default function AdminDashboardScreen()
 				<View className={webContainerCls}>
 					<View className="px-6 pt-6 pb-12">
 
-						{/* Stats row */}
 						<View className="flex-row mb-6 gap-2.5">
 							<StatsCard label="Total"    count={companies.length} color="#2563EB" />
 							<StatsCard label="Pending"  count={pendingCount}     color="#D97706" />
@@ -876,16 +889,16 @@ export default function AdminDashboardScreen()
 							<StatsCard label="Rejected" count={rejectedCount}    color="#DC2626" />
 						</View>
 
-						{/* Loading state */}
-						{loading && (
+						{loading &&
+						(
 							<View className="flex-1 items-center justify-center py-24">
 								<ActivityIndicator size="large" color="#2563EB" />
 								<Text className="text-gray-500 mt-4 text-sm">Loading registrations…</Text>
 							</View>
 						)}
 
-						{/* Error state */}
-						{!loading && fetchError !== '' && (
+						{!loading && fetchError !== '' &&
+						(
 							<View className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 mb-5 flex-row items-start">
 								<MaterialCommunityIcons
 									name="alert-circle-outline"
@@ -902,8 +915,8 @@ export default function AdminDashboardScreen()
 							</View>
 						)}
 
-						{/* Empty state */}
-						{!loading && fetchError === '' && companies.length === 0 && (
+						{!loading && fetchError === '' && companies.length === 0 &&
+						(
 							<View className="items-center justify-center py-24">
 								<View className="w-16 h-16 bg-gray-100 rounded-2xl items-center justify-center mb-4">
 									<MaterialCommunityIcons name="inbox-outline" size={32} color="#D1D5DB" />
@@ -915,9 +928,10 @@ export default function AdminDashboardScreen()
 							</View>
 						)}
 
-						{/* Company cards */}
-						{!loading && fetchError === '' && companies.map(
-							(company) => (
+						{!loading && fetchError === '' && companies.map
+						(
+							(company) =>
+							(
 								<CompanyCard
 									key={company._id}
 									company={company}
@@ -932,8 +946,8 @@ export default function AdminDashboardScreen()
 				</View>
 			</ScrollView>
 
-			{/* Document preview modal (web only) */}
-			{Platform.OS === 'web' && (
+			{Platform.OS === 'web' &&
+			(
 				<Modal
 					transparent
 					animationType="fade"
@@ -943,7 +957,6 @@ export default function AdminDashboardScreen()
 					<View className="flex-1 bg-black/75 items-center justify-center p-6">
 						<View className="bg-white rounded-2xl w-full max-w-[820px] h-[88%] overflow-hidden">
 
-							{/* Modal header */}
 							<View className="flex-row items-center justify-between px-5 py-3.5 border-b border-gray-200">
 								<View className="flex-row items-center flex-1 mr-3">
 									<MaterialCommunityIcons
@@ -970,10 +983,10 @@ export default function AdminDashboardScreen()
 								</TouchableOpacity>
 							</View>
 
-							{/* Modal body */}
 							<View className="flex-1">
 
-								{preview.loading && (
+								{preview.loading &&
+								(
 									<View className="flex-1 items-center justify-center">
 										<ActivityIndicator size="large" color="#2563EB" />
 										<Text className="text-gray-500 mt-3 text-sm">
@@ -982,7 +995,8 @@ export default function AdminDashboardScreen()
 									</View>
 								)}
 
-								{!preview.loading && preview.error !== '' && (
+								{!preview.loading && preview.error !== '' &&
+								(
 									<View className="flex-1 items-center justify-center p-6">
 										<MaterialCommunityIcons
 											name="alert-circle-outline"
@@ -995,7 +1009,8 @@ export default function AdminDashboardScreen()
 									</View>
 								)}
 
-								{!preview.loading && preview.error === '' && preview.blobUrl !== '' && (
+								{!preview.loading && preview.error === '' && preview.blobUrl !== '' &&
+								(
 									// @ts-ignore
 									<iframe
 										src={preview.blobUrl}

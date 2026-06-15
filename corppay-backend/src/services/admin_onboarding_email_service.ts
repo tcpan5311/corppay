@@ -102,7 +102,8 @@ export async function sendOnboardingEmail(params: SendOnboardingEmailParams): Pr
 	const textBody = buildOnboardingTextBody(setupUrl)
 	const htmlBody = buildOnboardingHtmlBody(setupUrl)
 
-	await onboardingTransporter.sendMail({
+	await onboardingTransporter.sendMail
+	({
 		from,
 		to:      params.toAddress,
 		subject: 'CorpPay — Your registration is approved. Set up your account.',

@@ -17,7 +17,8 @@ export interface IUserOnboardingToken extends Document
 }
 
 // Builds an unsaved user onboarding token document expiring 24 hours from now.
-export function buildUserOnboardingTokenDoc(
+export function buildUserOnboardingTokenDoc
+(
 	token:         string,
 	email:         string,
 	applicationId: mongoose.Types.ObjectId,
@@ -41,7 +42,8 @@ export function buildUserOnboardingTokenDoc(
 	} as Omit<IUserOnboardingToken, keyof Document>
 }
 
-const UserOnboardingTokenSchema = new Schema<IUserOnboardingToken>(
+const UserOnboardingTokenSchema = new Schema<IUserOnboardingToken>
+(
 	{
 		token:         { type: String, required: true, unique: true, index: true },
 		email:         { type: String, required: true },

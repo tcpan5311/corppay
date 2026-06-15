@@ -10,13 +10,12 @@ import {
 	verifyResubmissionToken,
 } from '../services/admin_resubmission_service'
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 const NRIC_REGEX      = /^\d{12}$/
 const PASSPORT_REGEX  = /^[A-Z0-9]{6,12}$/
 const SSM_DIGIT_REGEX = /^\d{12}$/
 
-const ALLOWED_MIME_TYPES = [
+const ALLOWED_MIME_TYPES = 
+[
 	'application/pdf',
 	'image/jpeg',
 	'image/jpg',
@@ -201,8 +200,6 @@ function collectErrorMessages(errors: ResubmitValidationErrors): Record<string, 
 	return result
 }
 
-// ─── Body Helpers ─────────────────────────────────────────────────────────────
-
 // Extracts a string value from an unknown record by key, returning an empty string if absent or non-string.
 function extractBodyString(body: Record<string, unknown>, key: string): string
 {
@@ -249,7 +246,8 @@ function resolveOwnershipPct(body: Record<string, unknown>): number | null
 }
 
 // Builds a ValidateResubmitInput from the parsed request body and multer file map.
-function buildValidationInput(
+function buildValidationInput
+(
 	body:  Record<string, unknown>,
 	files: Record<string, Express.Multer.File[]> | null,
 ): ValidateResubmitInput
@@ -283,8 +281,6 @@ function buildValidationInput(
 	return input
 }
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
-
 const uploadDir = path.resolve(process.cwd(), 'uploads')
 
 if (!fs.existsSync(uploadDir))
@@ -315,7 +311,8 @@ const storage = multer.diskStorage({
 })
 
 // Allows only PDF, JPEG, and PNG files through the multer upload pipeline.
-function fileFilter(
+function fileFilter
+(
 	_req: Request,
 	file: Express.Multer.File,
 	cb: FileFilterCallback,
@@ -333,12 +330,11 @@ function fileFilter(
 }
 
 const upload       = multer({ storage, fileFilter })
-const uploadFields = upload.fields([
+const uploadFields = upload.fields
+([
 	{ name: 'ssmDoc', maxCount: 1 },
 	{ name: 'icDoc',  maxCount: 1 },
 ])
-
-// ─── Document Helpers ─────────────────────────────────────────────────────────
 
 // Builds an IUploadedDocument from a multer file object with the given field name.
 function buildDocument(file: Express.Multer.File, fieldName: string): IUploadedDocument
@@ -354,7 +350,8 @@ function buildDocument(file: Express.Multer.File, fieldName: string): IUploadedD
 }
 
 // Merges incoming uploaded files with the company's existing documents, replacing matching field names.
-function mergeDocuments(
+function mergeDocuments
+(
 	existing: IUploadedDocument[],
 	ssmFile:  Express.Multer.File | null,
 	icFile:   Express.Multer.File | null,
@@ -377,14 +374,13 @@ function mergeDocuments(
 		? buildDocument(icFile, 'director_ic')
 		: existingIc !== undefined ? existingIc : fallbackIc
 
-	const others = existing.filter(
+	const others = existing.filter
+	(
 		(d) => d.fieldName !== 'ssm_cert' && d.fieldName !== 'director_ic',
 	)
 
 	return [...others, ssmDoc, icDoc]
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = Router()
 
@@ -427,7 +423,8 @@ router.get('/verify', async (req: Request, res: Response) =>
 			? { name: icDocRaw.originalName, mimeType: icDocRaw.mimeType, bytes: icDocRaw.sizeBytes }
 			: null
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			email:             tokenVerify.email,
 			ssmNumber:         tokenVerify.ssmNumber,
 			name:              company.name,
@@ -464,7 +461,8 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 
 	if (hasResubmitErrors(validationErrors))
 	{
-		return res.status(400).json({
+		return res.status(400).json
+		({
 			error:  'Validation failed.',
 			errors: collectErrorMessages(validationErrors),
 		})

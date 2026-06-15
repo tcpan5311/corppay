@@ -17,7 +17,8 @@ export interface IAdminUser extends Document
 	comparePassword(candidate: string): Promise<boolean>
 }
 
-const AdminUserSchema = new Schema<IAdminUser>(
+const AdminUserSchema = new Schema<IAdminUser>
+(
 	{
 		email:         { type: String,   required: true, lowercase: true, trim: true },
 		passwordHash:  { type: String,   required: true,  select: false },
@@ -29,7 +30,7 @@ const AdminUserSchema = new Schema<IAdminUser>(
 		isActive:      { type: Boolean,  required: true,  default: true },
 		lastLoginAt:   { type: Date,     required: true,  default: () => new Date(0) },
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 )
 
 // Compares a plaintext candidate password against the stored bcrypt hash.

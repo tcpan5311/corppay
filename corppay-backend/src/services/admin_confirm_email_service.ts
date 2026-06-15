@@ -101,7 +101,8 @@ export async function sendVerificationEmail(params: SendVerificationEmailParams)
 	const textBody  = buildTextBody(verifyUrl)
 	const htmlBody  = buildHtmlBody(verifyUrl)
 
-	await transporter.sendMail({
+	await transporter.sendMail
+	({
 		from,
 		to:      params.toAddress,
 		subject: 'CorpPay — Verify your email to complete registration',

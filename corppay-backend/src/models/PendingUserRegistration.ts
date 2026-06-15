@@ -26,7 +26,8 @@ export interface IPendingUserRegistration extends Document
 }
 
 // Builds an unsaved pending user registration document expiring 15 minutes from now with the given token.
-export function buildPendingUserRegistrationDoc(
+export function buildPendingUserRegistrationDoc
+(
 	token:        string,
 	fullName:     string,
 	dateOfBirth:  string,
@@ -62,7 +63,8 @@ export function buildPendingUserRegistrationDoc(
 	} as Omit<IPendingUserRegistration, keyof Document>
 }
 
-const UploadedDocSubSchema = new Schema<IUploadedDocument>(
+const UploadedDocSubSchema = new Schema<IUploadedDocument>
+(
 	{
 		fieldName:    { type: String, default: null },
 		originalName: { type: String, default: null },
@@ -74,7 +76,8 @@ const UploadedDocSubSchema = new Schema<IUploadedDocument>(
 	{ _id: false },
 )
 
-const PendingUserRegistrationSchema = new Schema<IPendingUserRegistration>(
+const PendingUserRegistrationSchema = new Schema<IPendingUserRegistration>
+(
 	{
 		token:        { type: String, required: true, unique: true, index: true },
 		expiresAt:    { type: Date,   required: true, index: { expireAfterSeconds: 0 } },

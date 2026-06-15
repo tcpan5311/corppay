@@ -15,19 +15,22 @@ export interface IUser extends Document
 	comparePassword(candidate: string): Promise<boolean>
 }
 
-const UserSchema = new Schema<IUser>(
-{
-	email:          { type: String,  required: true, unique: true, lowercase: true, trim: true },
-	passwordHash:   { type: String, required: true, select: false },
-	role:           { type: String,  enum: ['user'], default: 'user' },
-	isActive:       { type: Boolean, default: true },
-	loginAttempts:  { type: Number,  default: 0 },
-	lockedUntil:    { type: Date,    default: null },
-	refreshTokens:  [{ type: String, select: false }],
-	lastLoginAt:    { type: Date,    default: null },
-},
-{ timestamps: true })
+const UserSchema = new Schema<IUser>
+(
+	{
+		email:          { type: String,  required: true, unique: true, lowercase: true, trim: true },
+		passwordHash:   { type: String, required: true, select: false },
+		role:           { type: String,  enum: ['user'], default: 'user' },
+		isActive:       { type: Boolean, default: true },
+		loginAttempts:  { type: Number,  default: 0 },
+		lockedUntil:    { type: Date,    default: null },
+		refreshTokens:  [{ type: String, select: false }],
+		lastLoginAt:    { type: Date,    default: null },
+	},
+	{ timestamps: true },
+)
 
+// Compares a candidate plaintext password against the stored hash for this user document.
 UserSchema.methods.comparePassword = function (candidate: string)
 {
 	return bcrypt.compare(candidate, this.passwordHash)

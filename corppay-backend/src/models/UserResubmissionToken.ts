@@ -14,7 +14,8 @@ export interface IUserResubmissionToken extends Document
 }
 
 // Creates a fully initialized user resubmission token document payload with a 24-hour expiry.
-export function buildUserResubmissionTokenDoc(
+export function buildUserResubmissionTokenDoc
+(
 	token:         string,
 	email:         string,
 	applicationId: mongoose.Types.ObjectId,
@@ -24,7 +25,8 @@ export function buildUserResubmissionTokenDoc(
 	return { token, email, applicationId, status: 'pending', expiresAt } as Omit<IUserResubmissionToken, keyof Document>
 }
 
-const UserResubmissionTokenSchema = new Schema<IUserResubmissionToken>(
+const UserResubmissionTokenSchema = new Schema<IUserResubmissionToken>
+(
 	{
 		token:         { type: String, required: true, unique: true },
 		email:         { type: String, required: true },

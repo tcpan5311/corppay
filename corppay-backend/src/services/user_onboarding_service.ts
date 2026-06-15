@@ -20,7 +20,8 @@ function createUserOnboardingTokenResult(): CreateUserOnboardingTokenResult
 }
 
 // Generates and persists a secure 24-hour onboarding token binding the user to an assigned company, role, and department.
-export async function createUserOnboardingToken(
+export async function createUserOnboardingToken
+(
 	email:         string,
 	applicationId: mongoose.Types.ObjectId,
 	companyId:     mongoose.Types.ObjectId,
@@ -97,13 +98,15 @@ export function createCompleteUserOnboardingResult(): CompleteUserOnboardingResu
 }
 
 // Hashes the password, creates the company user membership record, and marks the onboarding token as consumed.
-export async function completeUserOnboarding(
+export async function completeUserOnboarding
+(
 	token:    string,
 	password: string,
 ): Promise<CompleteUserOnboardingResult>
 {
 	const result  = createCompleteUserOnboardingResult()
-	const pending = await UserOnboardingToken.findOneAndUpdate(
+	const pending = await UserOnboardingToken.findOneAndUpdate
+	(
 		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'used' },
 		{ new: false },
@@ -115,7 +118,8 @@ export async function completeUserOnboarding(
 		return result
 	}
 
-	const existingUser = await CompanyUser.findOne({
+	const existingUser = await CompanyUser.findOne
+	({
 		email:     pending.email.toLowerCase(),
 		companyId: pending.companyId,
 	})
@@ -128,7 +132,8 @@ export async function completeUserOnboarding(
 
 	const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS)
 
-	await CompanyUser.create({
+	await CompanyUser.create
+	({
 		email:         pending.email.toLowerCase(),
 		passwordHash,
 		companyId:     pending.companyId,

@@ -18,12 +18,14 @@ function createUserResubmissionTokenResult(): CreateUserResubmissionTokenResult
 }
 
 // Invalidates all pending resubmission tokens for an application, then generates and persists a new one.
-export async function createUserResubmissionToken(
+export async function createUserResubmissionToken
+(
 	email:         string,
 	applicationId: mongoose.Types.ObjectId,
 ): Promise<CreateUserResubmissionTokenResult>
 {
-	await UserResubmissionToken.updateMany(
+	await UserResubmissionToken.updateMany
+	(
 		{ applicationId, status: 'pending' },
 		{ status: 'used' },
 	)
@@ -122,13 +124,15 @@ export function createCompleteUserResubmissionResult(): CompleteUserResubmission
 }
 
 // Verifies the token, updates the existing application document in place, and marks the token as consumed.
-export async function completeUserResubmission(
+export async function completeUserResubmission
+(
 	token:   string,
 	payload: ResubmitUserPayload,
 ): Promise<CompleteUserResubmissionResult>
 {
 	const result  = createCompleteUserResubmissionResult()
-	const pending = await UserResubmissionToken.findOneAndUpdate(
+	const pending = await UserResubmissionToken.findOneAndUpdate
+	(
 		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'used' },
 		{ new: false },

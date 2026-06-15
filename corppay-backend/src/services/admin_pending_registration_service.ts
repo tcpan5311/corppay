@@ -48,7 +48,8 @@ function createSavePendingResult(): SavePendingResult
 export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendingRegistration | null>
 {
 	const normalized = ssmNumber.trim().toUpperCase()
-	return PendingRegistration.findOne({
+	return PendingRegistration.findOne
+	({
 		ssmNumber: normalized,
 		status:    'pending',
 		expiresAt: { $gt: new Date() },
@@ -58,7 +59,8 @@ export async function findActivePendingBySsm(ssmNumber: string): Promise<IPendin
 // Returns the active pending registration whose name matches the given value case-insensitively, or null if absent.
 export async function findActivePendingByName(name: string): Promise<IPendingRegistration | null>
 {
-	return PendingRegistration.findOne({
+	return PendingRegistration.findOne
+	({
 		name:      name.trim(),
 		status:    'pending',
 		expiresAt: { $gt: new Date() },
@@ -74,7 +76,8 @@ export async function savePendingRegistration(payload: SavePendingRegistrationPa
 	director.role             = payload.directorRole as DirectorRole
 	director.ownershipPct     = payload.directorOwnershipPct
 
-	const doc = buildPendingRegistrationDoc(
+	const doc = buildPendingRegistrationDoc
+	(
 		hashToken(rawToken),
 		payload.name,
 		payload.ssmNumber,
@@ -111,7 +114,8 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 	const tokenHash = hashToken(token)
 
 	// Atomically claim the pending registration so it cannot be verified twice concurrently.
-	const pending = await PendingRegistration.findOneAndUpdate(
+	const pending = await PendingRegistration.findOneAndUpdate
+	(
 		{ token: tokenHash, status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'verified' },
 		{ new: false },
@@ -126,12 +130,14 @@ export async function verifyEmailToken(token: string): Promise<VerifyTokenResult
 		return result
 	}
 
-	await registerCompany({
+	await registerCompany
+	({
 		name:              pending.name,
 		ssmNumber:         pending.ssmNumber,
 		entityType:        pending.entityType,
 		registeredAddress: pending.registeredAddress,
-		director: {
+		director: 
+		{
 			icPassport:   pending.director.icPassport,
 			role:         pending.director.role,
 			ownershipPct: pending.director.ownershipPct,

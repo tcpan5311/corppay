@@ -11,8 +11,6 @@ import { createSendUserRejectionEmailParams, sendUserRejectionEmail } from '../s
 import { createSendUserResubmissionEmailParams, sendUserResubmissionEmail } from '../services/user_resubmission_email_service'
 import { createUserResubmissionToken } from '../services/user_resubmission_service'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 // Extracts a string value from an unknown record by key, returning an empty string if absent or non-string.
 function extractBodyString(body: Record<string, unknown>, key: string): string
 {
@@ -69,8 +67,6 @@ async function resolveAdminCompanyContext(req: Request): Promise<AdminCompanyCon
 	return context
 }
 
-// ─── Router ───────────────────────────────────────────────────────────────────
-
 const router = Router()
 
 // Returns the KYC applications targeted at the authenticated admin's own company, newest first.
@@ -118,7 +114,8 @@ router.get('/applications/file/:filename', authenticate, requireRole('admin'), a
 		const uploadDir = resolveUploadDir()
 		const filePath  = path.resolve(path.join(uploadDir, filename))
 
-		const owner = await UserApplication.findOne({
+		const owner = await UserApplication.findOne
+		({
 			targetCompanyId:        context.companyId,
 			'documents.storagePath': filePath,
 		}).lean()
@@ -194,7 +191,8 @@ router.post('/applications/:id/approve', authenticate, requireRole('admin'), asy
 
 		const applicationObjectId = application._id as mongoose.Types.ObjectId
 
-		const tokenResult = await createUserOnboardingToken(
+		const tokenResult = await createUserOnboardingToken
+		(
 			application.email,
 			applicationObjectId,
 			companyObjectId,
@@ -210,7 +208,8 @@ router.post('/applications/:id/approve', authenticate, requireRole('admin'), asy
 
 		await sendUserOnboardingEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:       'Application approved. Onboarding email sent.',
 			applicationId: application._id,
 		})
@@ -265,7 +264,8 @@ router.post('/applications/:id/reject', authenticate, requireRole('admin'), asyn
 
 		await sendUserRejectionEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:       'Application rejected. Notification email sent.',
 			applicationId: application._id,
 		})
@@ -320,7 +320,8 @@ router.post('/applications/:id/reenable', authenticate, requireRole('admin'), as
 
 		await sendUserResubmissionEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:       'Application re-enabled. Resubmission email sent.',
 			applicationId: application._id,
 		})

@@ -15,8 +15,6 @@ import { createResubmissionToken } from '../services/admin_resubmission_service'
 import { issueAdminSessionToken } from '../services/root_session_service'
 import { buildTotpUri, validateTotpCode } from '../services/root_totp_service'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 // Returns true when the filename contains only safe alphanumeric and extension characters.
 function isSafeFilename(filename: string): boolean
 {
@@ -35,8 +33,6 @@ function extractBodyString(body: Record<string, unknown>, key: string): string
 	const val = body[key]
 	return typeof val === 'string' ? val.trim() : ''
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = Router()
 
@@ -182,7 +178,8 @@ router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id
 
 		const companyObjectId = company._id as mongoose.Types.ObjectId
 
-		const tokenResult = await createOnboardingToken(
+		const tokenResult = await createOnboardingToken
+		(
 			company.submittedBy,
 			company.ssmNumber,
 			companyObjectId,
@@ -194,7 +191,8 @@ router.post('/companies/:id/approve', requireAdminRole, async (req: Request<{ id
 
 		await sendOnboardingEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:   'Company approved. Onboarding email sent.',
 			companyId: company._id,
 		})
@@ -238,7 +236,8 @@ router.post('/companies/:id/reject', requireAdminRole, async (req: Request<{ id:
 
 		await sendRejectionEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:   'Company rejected. Notification email sent.',
 			companyId: company._id,
 		})
@@ -275,7 +274,8 @@ router.post('/companies/:id/reenable', requireAdminRole, async (req: Request<{ i
 
 		const companyObjectId = company._id as mongoose.Types.ObjectId
 
-		const tokenResult = await createResubmissionToken(
+		const tokenResult = await createResubmissionToken
+		(
 			company.submittedBy,
 			company.ssmNumber,
 			companyObjectId,
@@ -287,7 +287,8 @@ router.post('/companies/:id/reenable', requireAdminRole, async (req: Request<{ i
 
 		await sendResubmissionEmail(emailParams)
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message:   'Application re-enabled. Resubmission email sent.',
 			companyId: company._id,
 		})

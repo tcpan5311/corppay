@@ -20,16 +20,12 @@ import {
 	validateAllFields,
 } from '../validation/registerUserValidation'
 
-// ─── Body Extraction ──────────────────────────────────────────────────────────
-
 // Extracts a string value from an unknown record by key, returning an empty string if absent or non-string.
 function extractBodyString(body: Record<string, unknown>, key: string): string
 {
 	const val = body[key]
 	return typeof val === 'string' ? val : ''
 }
-
-// ─── Validation ───────────────────────────────────────────────────────────────
 
 type UploadedFileInfo =
 {
@@ -102,7 +98,8 @@ function collectErrorMessages(errors: FormErrors): Record<string, string>
 }
 
 // Extracts all registration field values from the request body and multer file map, adapting them to the shared validator shape.
-function buildRegistrationFieldValues(
+function buildRegistrationFieldValues
+(
 	body:  Record<string, unknown>,
 	files: Record<string, Express.Multer.File[]> | null,
 ): RegistrationFieldValues
@@ -133,7 +130,8 @@ function validateFieldValues(values: RegistrationFieldValues): FormErrors
 	const documentType = values.documentType !== '' ? values.documentType : null
 	const targetCompany = values.targetCompanyId !== '' ? values.targetCompanyId : null
 
-	return validateAllFields(
+	return validateAllFields
+	(
 		values.fullName,
 		values.dateOfBirth,
 		values.nationality,
@@ -147,8 +145,6 @@ function validateFieldValues(values: RegistrationFieldValues): FormErrors
 	)
 }
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
-
 const uploadDir = path.resolve(process.cwd(), 'uploads')
 
 if (!fs.existsSync(uploadDir))
@@ -156,7 +152,8 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage({
+const storage = multer.diskStorage
+({
 	// Resolves the destination directory for incoming uploaded files.
 	destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
 	{
@@ -188,11 +185,10 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
 }
 
 const upload       = multer({ storage, fileFilter })
-const uploadFields = upload.fields([
+const uploadFields = upload.fields
+([
 	{ name: 'idDoc', maxCount: 1 },
 ])
-
-// ─── Documents ──────────────────────────────────────────────────────────────
 
 // Builds the IUploadedDocument array from the required identity document multer file object.
 function buildDocuments(idFile: Express.Multer.File): IUploadedDocument[]
@@ -209,8 +205,6 @@ function buildDocuments(idFile: Express.Multer.File): IUploadedDocument[]
 	return [idDoc]
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
 const router = Router()
 
 // Validates all registration fields, checks for email conflicts, saves a pending registration, and dispatches a verification email.
@@ -224,7 +218,8 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 
 	if (hasErrors(errors))
 	{
-		return res.status(400).json({
+		return res.status(400).json
+		({
 			error:  'Validation failed.',
 			errors: collectErrorMessages(errors),
 		})
@@ -292,7 +287,8 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 
 		await sendVerificationEmail(emailParams)
 
-		return res.status(202).json({
+		return res.status(202).json
+		({
 			message:   'Verification email sent. Please check your inbox and confirm within 15 minutes.',
 			expiresAt: saved.expiresAt,
 		})

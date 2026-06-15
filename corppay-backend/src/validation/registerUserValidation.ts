@@ -197,7 +197,8 @@ export type UploadFileValidatable =
 	mimeType: string | null
 } | null
 
-const ALLOWED_MIME_TYPES: string[] = [
+const ALLOWED_MIME_TYPES: string[] = 
+[
 	'application/pdf',
 	'image/jpeg',
 	'image/jpg',
@@ -225,7 +226,8 @@ export function validateUploadedFile(file: UploadFileValidatable, label: string)
 }
 
 // Validates every user registration field at once and returns a fully populated FormErrors object.
-export function validateAllFields(
+export function validateAllFields
+(
 	fullName:     string,
 	dateOfBirth:  string,
 	nationality:  string,

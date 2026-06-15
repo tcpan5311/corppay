@@ -106,7 +106,8 @@ export default function AdminReviewGateScreen()
 			const result = await postValidateToken(code)
 			if (!result.valid)
 			{
-				setState((prev) => ({
+				setState((prev) => 
+				({
 					...prev,
 					isChecking: false,
 					errorMsg:   result.error !== '' ? result.error : 'Invalid code.',
@@ -119,7 +120,8 @@ export default function AdminReviewGateScreen()
 		}
 		catch (e)
 		{
-			setState((prev) => ({
+			setState((prev) => 
+			({
 				...prev,
 				isChecking: false,
 				errorMsg:   resolveErrorMessage(e),
@@ -184,7 +186,6 @@ export default function AdminReviewGateScreen()
 				<View className="flex-1 justify-center px-6">
 					<View className={webContainerCls}>
 
-						{/* Icon badge */}
 						<View className="items-center mb-8">
 							<View className="w-20 h-20 bg-blue-600 rounded-3xl items-center justify-center shadow-lg mb-4">
 								<MaterialCommunityIcons name="shield-lock-outline" size={40} color="#FFFFFF" />
@@ -195,7 +196,6 @@ export default function AdminReviewGateScreen()
 							</Text>
 						</View>
 
-						{/* Code input card */}
 						<View className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-6 mb-4">
 							<Text className="text-gray-700 text-sm font-medium mb-2">Authenticator Code</Text>
 
@@ -234,7 +234,8 @@ export default function AdminReviewGateScreen()
 								</TouchableOpacity>
 							</View>
 
-							{hasError && (
+							{hasError &&
+							(
 								<View className="flex-row items-center mt-2 ml-1">
 									<MaterialCommunityIcons
 										name="alert-circle-outline"
@@ -249,9 +250,9 @@ export default function AdminReviewGateScreen()
 							)}
 						</View>
 
-						{/* Submit button */}
 						<TouchableOpacity
-							className={`rounded-2xl py-4 items-center shadow-md ${
+							className={`rounded-2xl py-4 items-center shadow-md 
+							${
 								state.isChecking || state.code.trim() === ''
 									? 'bg-gray-300 shadow-gray-200'
 									: 'bg-blue-600 shadow-blue-300'
@@ -265,7 +266,8 @@ export default function AdminReviewGateScreen()
 							{state.isChecking
 								? <ActivityIndicator color="#fff" />
 								: (
-									<Text className={`text-base font-semibold ${
+									<Text className={`text-base font-semibold 
+									${
 										state.code.trim() === '' ? 'text-gray-400' : 'text-white'
 									}`}>
 										Verify Code

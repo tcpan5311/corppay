@@ -17,13 +17,15 @@ function createResubmissionTokenResult(): CreateResubmissionTokenResult
 }
 
 // Invalidates all pending resubmission tokens for a company, then generates and persists a new one.
-export async function createResubmissionToken(
+export async function createResubmissionToken
+(
 	email:     string,
 	ssmNumber: string,
 	companyId: mongoose.Types.ObjectId,
 ): Promise<CreateResubmissionTokenResult>
 {
-	await ResubmissionToken.updateMany(
+	await ResubmissionToken.updateMany
+	(
 		{ companyId, status: 'pending' },
 		{ status: 'used' },
 	)
@@ -118,13 +120,15 @@ export function createCompleteResubmissionResult(): CompleteResubmissionResult
 }
 
 // Verifies the token, updates the existing Company document in place, and marks the token as consumed.
-export async function completeResubmission(
+export async function completeResubmission
+(
 	token:   string,
 	payload: ResubmitCompanyPayload,
 ): Promise<CompleteResubmissionResult>
 {
 	const result  = createCompleteResubmissionResult()
-	const pending = await ResubmissionToken.findOneAndUpdate(
+	const pending = await ResubmissionToken.findOneAndUpdate
+	(
 		{ token: hashToken(token), status: 'pending', expiresAt: { $gt: new Date() } },
 		{ status: 'used' },
 		{ new: false },

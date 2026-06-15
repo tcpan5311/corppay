@@ -12,20 +12,23 @@ export type FormErrors =
 	icDoc:             string | null
 }
 
+// Creates a FormErrors object with every field initialised to null, indicating no validation errors.
 export function createFormErrors(): FormErrors
 {
-	return {
-		companyName:       null,
-		ssmNumber:         null,
-		entityType:        null,
-		registeredAddress: null,
-		registeredEmail:   null,
-		icPassport:        null,
-		directorRole:      null, 
-		ownershipPct:      null,
-		ssmDoc:            null,
-		icDoc:             null,
-	}
+	return (
+		{
+			companyName:       null,
+			ssmNumber:         null,
+			entityType:        null,
+			registeredAddress: null,
+			registeredEmail:   null,
+			icPassport:        null,
+			directorRole:      null,
+			ownershipPct:      null,
+			ssmDoc:            null,
+			icDoc:             null,
+		}
+	)
 }
 
 export type TouchedFields =
@@ -36,44 +39,51 @@ export type TouchedFields =
 	registeredAddress: boolean
 	registeredEmail:   boolean
 	icPassport:        boolean
-	directorRole:      boolean 
+	directorRole:      boolean
 	ownershipPct:      boolean
 	ssmDoc:            boolean
 	icDoc:             boolean
 }
 
+// Creates a TouchedFields object with every field initialised to false, indicating no field has been interacted with yet.
 export function createTouchedFields(): TouchedFields
 {
-	return {
-		companyName:       false,
-		ssmNumber:         false,
-		entityType:        false,
-		registeredAddress: false,
-		registeredEmail:   false,
-		icPassport:        false,
-		directorRole:      false, 
-		ownershipPct:      false,
-		ssmDoc:            false,
-		icDoc:             false,
-	}
+	return (
+		{
+			companyName:       false,
+			ssmNumber:         false,
+			entityType:        false,
+			registeredAddress: false,
+			registeredEmail:   false,
+			icPassport:        false,
+			directorRole:      false,
+			ownershipPct:      false,
+			ssmDoc:            false,
+			icDoc:             false,
+		}
+	)
 }
 
+// Creates a TouchedFields object with every field set to true, marking all fields as interacted with.
 export function touchAllFields(): TouchedFields
 {
-	return {
-		companyName:       true,
-		ssmNumber:         true,
-		entityType:        true,
-		registeredAddress: true,
-		registeredEmail:   true,
-		icPassport:        true,
-		directorRole:      true, 
-		ownershipPct:      true,
-		ssmDoc:            true,
-		icDoc:             true,
-	}
+	return (
+		{
+			companyName:       true,
+			ssmNumber:         true,
+			entityType:        true,
+			registeredAddress: true,
+			registeredEmail:   true,
+			icPassport:        true,
+			directorRole:      true,
+			ownershipPct:      true,
+			ssmDoc:            true,
+			icDoc:             true,
+		}
+	)
 }
 
+// Returns an error string if the company name is empty or exceeds the maximum length, otherwise null.
 export function validateCompanyName(value: string): string | null
 {
 	if (value.trim() === '')          return 'Company name is required.'
@@ -81,6 +91,7 @@ export function validateCompanyName(value: string): string | null
 	return null
 }
 
+// Returns an error string if the registration number is not exactly twelve digits or has an out-of-range year prefix, otherwise null.
 export function validateSsmNumber(value: string): string | null
 {
 	const trimmed = value.trim()
@@ -113,6 +124,7 @@ export function validateDirectorRole(value: string | null): string | null
 	return null
 }
 
+// Returns an error string if the registered address is empty or exceeds the maximum length, otherwise null.
 export function validateRegisteredAddress(value: string): string | null
 {
 	if (value.trim() === '')          return 'Registered address is required.'
@@ -120,6 +132,7 @@ export function validateRegisteredAddress(value: string): string | null
 	return null
 }
 
+// Returns an error string if the email address is empty or not a valid email format, otherwise null.
 export function validateRegisteredEmail(value: string): string | null
 {
 	if (value.trim() === '')          return 'Email address is required.'
@@ -134,11 +147,13 @@ export function validateRegisteredEmail(value: string): string | null
 const NRIC_REGEX     = /^\d{12}$/
 const PASSPORT_REGEX = /^[A-Z0-9]{6,12}$/
 
+// Returns the IC or passport value uppercased with all whitespace removed.
 export function normalizeIcPassport(value: string): string
 {
 	return value.toUpperCase().replace(/\s/g, '')
 }
 
+// Returns an error string if the IC or passport value is not a valid NRIC or passport format, otherwise null.
 export function validateIcPassport(value: string): string | null
 {
 	if (value.trim() === '')          return 'IC / Passport number is required.'
@@ -147,6 +162,7 @@ export function validateIcPassport(value: string): string | null
 	return 'Enter a valid 12-digit NRIC or 6–12 character passport number (A–Z, 0–9).'
 }
 
+// Returns an error string if the ownership percentage is empty, non-numeric, or outside the zero-to-one-hundred range, otherwise null.
 export function validateOwnershipPct(value: string): string | null
 {
 	if (value.trim() === '')          return 'Ownership percentage is required.'
@@ -175,9 +191,10 @@ const ALLOWED_MIME_TYPES = [
 	'image/jpg',
 	'image/png',
 ]
-const MAX_FILE_BYTES = 5 * 1024 * 1024 
+const MAX_FILE_BYTES = 5 * 1024 * 1024
 
-export function validateUploadedFile(file:  UploadFileValidatable, label: string,): string | null
+// Returns an error string if the uploaded file is missing, of an unsupported type, or larger than the maximum size, otherwise null.
+export function validateUploadedFile(file: UploadFileValidatable, label: string): string | null
 {
 	if (file === null || file.bytes === null)
 	{
@@ -195,6 +212,7 @@ export function validateUploadedFile(file:  UploadFileValidatable, label: string
 	return null
 }
 
+// Returns a FormErrors object holding the validation result for every registration field.
 export function validateAllFields
 (
 	companyName:       string,
@@ -207,23 +225,25 @@ export function validateAllFields
 	ownershipPct:      string,
 	ssmDoc:            UploadFileValidatable,
 	icDoc:             UploadFileValidatable,
-): 
-FormErrors
+): FormErrors
 {
-	return {
-		companyName:       validateCompanyName(companyName),
-		ssmNumber:         validateSsmNumber(ssmNumber),
-		entityType:        validateEntityType(entityType),
-		registeredAddress: validateRegisteredAddress(registeredAddress),
-		registeredEmail:   validateRegisteredEmail(registeredEmail),
-		icPassport:        validateIcPassport(icPassport),
-		directorRole:      validateDirectorRole(directorRole),
-		ownershipPct:      validateOwnershipPct(ownershipPct),
-		ssmDoc:            validateUploadedFile(ssmDoc, 'Certificate of Incorporation'),
-		icDoc:             validateUploadedFile(icDoc, 'Director IC / Passport Copy'),
-	}
+	return (
+		{
+			companyName:       validateCompanyName(companyName),
+			ssmNumber:         validateSsmNumber(ssmNumber),
+			entityType:        validateEntityType(entityType),
+			registeredAddress: validateRegisteredAddress(registeredAddress),
+			registeredEmail:   validateRegisteredEmail(registeredEmail),
+			icPassport:        validateIcPassport(icPassport),
+			directorRole:      validateDirectorRole(directorRole),
+			ownershipPct:      validateOwnershipPct(ownershipPct),
+			ssmDoc:            validateUploadedFile(ssmDoc, 'Certificate of Incorporation'),
+			icDoc:             validateUploadedFile(icDoc, 'Director IC / Passport Copy'),
+		}
+	)
 }
 
+// Returns true if any field in the supplied FormErrors object holds a non-null error value.
 export function hasErrors(errors: FormErrors): boolean
 {
 	return Object.values(errors).some((v) => v !== null)

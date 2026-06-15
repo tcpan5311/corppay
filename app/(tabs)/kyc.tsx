@@ -15,8 +15,6 @@ import {
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
-// ─── Domain types ─────────────────────────────────────────────────────────────
-
 type DocumentRecord =
 {
 	fieldName:    string | null
@@ -122,8 +120,6 @@ function createApplicationReviewCardProps(): ApplicationReviewCardProps
 	}
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 // Formats an ISO date string into a readable local date, or an em dash when absent.
 function formatDate(iso: string): string
 {
@@ -203,8 +199,6 @@ function resolveErrorMessage(e: unknown): string
 	}
 	return 'An unexpected error occurred.'
 }
-
-// ─── API ──────────────────────────────────────────────────────────────────────
 
 // Fetches the KYC applications targeted at the signed-in admin's own company.
 async function fetchApplications(token: string): Promise<ApplicationRecord[]>
@@ -297,8 +291,6 @@ async function reenableApplication(token: string, id: string): Promise<void>
 		throw new Error(msg)
 	}
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 // Renders a statistics summary card showing a label, count, and accent color.
 function StatsCard(props: StatsCardProps)
@@ -398,7 +390,6 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 	return (
 		<View className="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-hidden">
 
-			{/* Card header */}
 			<View className="px-5 py-4 border-b border-gray-100 flex-row items-start justify-between">
 				<View className="flex-1 mr-3">
 					<Text className="text-gray-900 text-base font-bold" numberOfLines={1}>{application.fullName}</Text>
@@ -413,7 +404,6 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 
 			<View className="px-5 py-4">
 
-				{/* Applicant information */}
 				<View className="mb-4">
 					<View className="flex-row items-center mb-3">
 						<View className="w-6 h-6 bg-blue-50 rounded-lg items-center justify-center mr-2">
@@ -433,16 +423,16 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 					</View>
 				</View>
 
-				{/* Assignment (shown once approved) */}
-				{application.status === 'approved' && (
+				{application.status === 'approved' &&
+				(
 					<View className="mb-4 bg-gray-50 rounded-xl px-4 py-3">
 						<DetailRow label="Assigned Role"       value={application.assignedRole !== null ? application.assignedRole : ''} />
 						<DetailRow label="Assigned Department" value={application.assignedDepartment !== null ? application.assignedDepartment : ''} />
 					</View>
 				)}
 
-				{/* Documents */}
-				{application.documents.length > 0 && (
+				{application.documents.length > 0 &&
+				(
 					<View>
 						<View className="flex-row items-center mb-3">
 							<View className="w-6 h-6 bg-green-50 rounded-lg items-center justify-center mr-2">
@@ -451,7 +441,8 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							<Text className="text-gray-700 text-sm font-semibold">Documents</Text>
 						</View>
 
-						{application.documents.map(
+						{application.documents.map
+						(
 							(doc, idx) =>
 							{
 								const filename = extractFilename(doc.storagePath)
@@ -474,7 +465,8 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 											<Text className="text-gray-400 text-xs">{formatBytes(doc.sizeBytes)}</Text>
 										</View>
 
-										{isWeb && filename !== '' && (
+										{isWeb && filename !== '' &&
+										(
 											<TouchableOpacity
 												onPress={() => onPreviewDoc(doc, accessToken)}
 												className="bg-blue-600 rounded-xl px-3 py-2 flex-row items-center"
@@ -487,7 +479,8 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 											</TouchableOpacity>
 										)}
 
-										{!isWeb && filename !== '' && (
+										{!isWeb && filename !== '' &&
+										(
 											<View className="bg-gray-200 rounded-xl px-3 py-2">
 												<Text className="text-gray-500 text-xs">Web only</Text>
 											</View>
@@ -499,16 +492,16 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 					</View>
 				)}
 
-				{/* Review note */}
-				{application.reviewNote !== null && (
+				{application.reviewNote !== null &&
+				(
 					<View className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
 						<Text className="text-amber-700 text-xs font-semibold mb-1">Review Note</Text>
 						<Text className="text-amber-800 text-sm">{application.reviewNote}</Text>
 					</View>
 				)}
 
-				{/* Approve and Reject — pending only */}
-				{application.status === 'pending' && (
+				{application.status === 'pending' &&
+				(
 					<View className="mt-4">
 
 						<Text className="text-gray-400 text-xs uppercase tracking-wide mb-1.5">Role</Text>
@@ -531,7 +524,8 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-sm mb-3"
 						/>
 
-						{approveError !== '' && (
+						{approveError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons name="alert-circle-outline" size={14} color="#DC2626" style={{ marginRight: 8 }} />
 								<Text className="text-red-600 text-xs flex-1">{approveError}</Text>
@@ -545,14 +539,16 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Approve application"
 						>
-							{isApproving ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons name="check-circle-outline" size={16} color={isApproveReady ? '#FFFFFF' : '#9CA3AF'} style={{ marginRight: 6 }} />
-									<Text className={`text-sm font-semibold ${isApproveReady ? 'text-white' : 'text-gray-400'}`}>Approve Application</Text>
-								</>
-							)}
+							{isApproving
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons name="check-circle-outline" size={16} color={isApproveReady ? '#FFFFFF' : '#9CA3AF'} style={{ marginRight: 6 }} />
+										<Text className={`text-sm font-semibold ${isApproveReady ? 'text-white' : 'text-gray-400'}`}>Approve Application</Text>
+									</>
+								)}
 						</TouchableOpacity>
 
 						<View className="border-t border-gray-100 mb-4" />
@@ -570,7 +566,8 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							style={{ textAlignVertical: 'top' }}
 						/>
 
-						{rejectError !== '' && (
+						{rejectError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons name="alert-circle-outline" size={14} color="#DC2626" style={{ marginRight: 8 }} />
 								<Text className="text-red-600 text-xs flex-1">{rejectError}</Text>
@@ -584,22 +581,25 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Reject application"
 						>
-							{isRejecting ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons name="close-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-									<Text className="text-white text-sm font-semibold">Reject Application</Text>
-								</>
-							)}
+							{isRejecting
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons name="close-circle-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+										<Text className="text-white text-sm font-semibold">Reject Application</Text>
+									</>
+								)}
 						</TouchableOpacity>
 					</View>
 				)}
 
-				{/* Re-enable — rejected only */}
-				{application.status === 'rejected' && (
+				{application.status === 'rejected' &&
+				(
 					<View className="mt-4">
-						{reenableError !== '' && (
+						{reenableError !== '' &&
+						(
 							<View className="mb-3 flex-row items-center bg-red-50 border border-red-200 rounded-xl px-4 py-3">
 								<MaterialCommunityIcons name="alert-circle-outline" size={14} color="#DC2626" style={{ marginRight: 8 }} />
 								<Text className="text-red-600 text-xs flex-1">{reenableError}</Text>
@@ -613,14 +613,16 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 							accessibilityRole="button"
 							accessibilityLabel="Re-enable application for resubmission"
 						>
-							{isReenabling ? (
-								<ActivityIndicator size="small" color="#6B7280" />
-							) : (
-								<>
-									<MaterialCommunityIcons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-									<Text className="text-white text-sm font-semibold">Re-enable for Resubmission</Text>
-								</>
-							)}
+							{isReenabling
+								? (
+									<ActivityIndicator size="small" color="#6B7280" />
+								)
+								: (
+									<>
+										<MaterialCommunityIcons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+										<Text className="text-white text-sm font-semibold">Re-enable for Resubmission</Text>
+									</>
+								)}
 						</TouchableOpacity>
 					</View>
 				)}
@@ -629,8 +631,6 @@ function ApplicationReviewCard(props: ApplicationReviewCardProps)
 		</View>
 	)
 }
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 // Renders the company-admin KYC review portal, scoped to the signed-in admin's own company.
 export default function KycReviewScreen()
@@ -742,7 +742,6 @@ export default function KycReviewScreen()
 	return (
 		<View className="flex-1 bg-[#F9FAFB]">
 
-			{/* Header */}
 			<View className="px-6 pt-6 pb-4 flex-row items-center justify-between border-b border-gray-100 bg-white">
 				<View>
 					<Text className="text-gray-900 text-xl font-bold">KYC Review</Text>
@@ -762,7 +761,6 @@ export default function KycReviewScreen()
 			<ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
 				<View className="px-6 pt-6 pb-12">
 
-					{/* Stats row */}
 					<View className="flex-row mb-6 gap-2.5">
 						<StatsCard label="Total"    count={applications.length} color="#2563EB" />
 						<StatsCard label="Pending"  count={pendingCount}        color="#D97706" />
@@ -770,16 +768,16 @@ export default function KycReviewScreen()
 						<StatsCard label="Rejected" count={rejectedCount}       color="#DC2626" />
 					</View>
 
-					{/* Loading */}
-					{loading && (
+					{loading &&
+					(
 						<View className="flex-1 items-center justify-center py-24">
 							<ActivityIndicator size="large" color="#2563EB" />
 							<Text className="text-gray-500 mt-4 text-sm">Loading applications…</Text>
 						</View>
 					)}
 
-					{/* Error */}
-					{!loading && fetchError !== '' && (
+					{!loading && fetchError !== '' &&
+					(
 						<View className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 mb-5 flex-row items-start">
 							<MaterialCommunityIcons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 8, marginTop: 1 }} />
 							<View className="flex-1">
@@ -789,8 +787,8 @@ export default function KycReviewScreen()
 						</View>
 					)}
 
-					{/* Empty */}
-					{!loading && fetchError === '' && applications.length === 0 && (
+					{!loading && fetchError === '' && applications.length === 0 &&
+					(
 						<View className="items-center justify-center py-24">
 							<View className="w-16 h-16 bg-gray-100 rounded-2xl items-center justify-center mb-4">
 								<MaterialCommunityIcons name="inbox-outline" size={32} color="#D1D5DB" />
@@ -800,9 +798,10 @@ export default function KycReviewScreen()
 						</View>
 					)}
 
-					{/* Cards */}
-					{!loading && fetchError === '' && applications.map(
-						(application) => (
+					{!loading && fetchError === '' && applications.map
+					(
+						(application) =>
+						(
 							<ApplicationReviewCard
 								key={application._id}
 								application={application}
@@ -816,8 +815,8 @@ export default function KycReviewScreen()
 				</View>
 			</ScrollView>
 
-			{/* Document preview modal (web only) */}
-			{Platform.OS === 'web' && (
+			{Platform.OS === 'web' &&
+			(
 				<Modal transparent animationType="fade" visible={preview.visible} onRequestClose={handleClosePreview}>
 					<View className="flex-1 bg-black/75 items-center justify-center p-6">
 						<View className="bg-white rounded-2xl w-full max-w-[820px] h-[88%] overflow-hidden">
@@ -838,21 +837,24 @@ export default function KycReviewScreen()
 							</View>
 
 							<View className="flex-1">
-								{preview.loading && (
+								{preview.loading &&
+								(
 									<View className="flex-1 items-center justify-center">
 										<ActivityIndicator size="large" color="#2563EB" />
 										<Text className="text-gray-500 mt-3 text-sm">Loading document…</Text>
 									</View>
 								)}
 
-								{!preview.loading && preview.error !== '' && (
+								{!preview.loading && preview.error !== '' &&
+								(
 									<View className="flex-1 items-center justify-center p-6">
 										<MaterialCommunityIcons name="alert-circle-outline" size={40} color="#DC2626" />
 										<Text className="text-red-600 mt-3 text-sm text-center">{preview.error}</Text>
 									</View>
 								)}
 
-								{!preview.loading && preview.error === '' && preview.blobUrl !== '' && (
+								{!preview.loading && preview.error === '' && preview.blobUrl !== '' &&
+								(
 									// @ts-ignore
 									<iframe src={preview.blobUrl} title={preview.filename} style={{ width: '100%', height: '100%', border: 'none' }} />
 								)}

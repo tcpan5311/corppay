@@ -109,7 +109,8 @@ export async function sendUserRejectionEmail(params: SendUserRejectionEmailParam
 	const textBody = buildRejectionTextBody(params.reviewNote)
 	const htmlBody = buildRejectionHtmlBody(params.reviewNote)
 
-	await rejectionTransporter.sendMail({
+	await rejectionTransporter.sendMail
+	({
 		from,
 		to:      params.toAddress,
 		subject: 'CorpPay — Update on your application',

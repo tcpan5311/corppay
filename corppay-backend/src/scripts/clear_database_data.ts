@@ -13,6 +13,7 @@ import UserApplication from '../models/UserApplication'
 import UserOnboardingToken from '../models/UserOnboardingToken'
 import UserResubmissionToken from '../models/UserResubmissionToken'
 
+// Deletes all records from every target collection in the connected database and logs the resulting counts.
 async function clear()
 {
 	try

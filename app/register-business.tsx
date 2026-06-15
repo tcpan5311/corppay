@@ -289,7 +289,8 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 {
 	if (Platform.OS === 'web')
 	{
-		await new Promise<void>(
+		await new Promise<void>
+		(
 			(resolve) =>
 			{
 				const input  = document.createElement('input')
@@ -339,7 +340,8 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 		try
 		{
 			const DocumentPicker = await import('expo-document-picker')
-			const result = await DocumentPicker.getDocumentAsync({
+			const result = await DocumentPicker.getDocumentAsync
+			({
 				type:                 ['application/pdf', 'image/*'],
 				copyToCacheDirectory: true,
 				multiple:             false,
@@ -392,7 +394,8 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<unk
 		}
 		else if (params.ssmDoc.uri !== null)
 		{
-			form.append('ssmDoc', {
+			form.append('ssmDoc', 
+			{
 				uri:  params.ssmDoc.uri,
 				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
 				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
@@ -408,7 +411,8 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<unk
 		}
 		else if (params.icDoc.uri !== null)
 		{
-			form.append('icDoc', {
+			form.append('icDoc', 
+			{
 				uri:  params.icDoc.uri,
 				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
 				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
@@ -418,7 +422,8 @@ async function submitRegistration(params: SubmitRegistrationParams): Promise<unk
 
 	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
 
-	const response = await fetch(`${API_BASE}/companies/register`, {
+	const response = await fetch(`${API_BASE}/companies/register`, 
+	{
 		method:  'POST',
 		headers: { Authorization: authHeader },
 		body:    form,
@@ -460,7 +465,8 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<u
 		}
 		else if (params.ssmDoc.uri !== null)
 		{
-			form.append('ssmDoc', {
+			form.append('ssmDoc', 
+			{
 				uri:  params.ssmDoc.uri,
 				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
 				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
@@ -476,7 +482,8 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<u
 		}
 		else if (params.icDoc.uri !== null)
 		{
-			form.append('icDoc', {
+			form.append('icDoc', 
+			{
 				uri:  params.icDoc.uri,
 				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
 				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
@@ -486,7 +493,8 @@ async function initiateRegistration(params: SubmitRegistrationParams): Promise<u
 
 	const authHeader = params.accessToken !== null ? `Bearer ${params.accessToken}` : ''
 
-	const response = await fetch(`${API_BASE}/companies/initiate-register`, {
+	const response = await fetch(`${API_BASE}/companies/initiate-register`, 
+	{
 		method:  'POST',
 		headers: { Authorization: authHeader },
 		body:    form,
@@ -527,7 +535,8 @@ async function submitResubmission(params: SubmitResubmissionParams): Promise<unk
 		}
 		else if (params.ssmDoc.uri !== null)
 		{
-			form.append('ssmDoc', {
+			form.append('ssmDoc', 
+			{
 				uri:  params.ssmDoc.uri,
 				name: params.ssmDoc.name !== null ? params.ssmDoc.name : 'file',
 				type: params.ssmDoc.mimeType !== null ? params.ssmDoc.mimeType : 'application/octet-stream',
@@ -543,7 +552,8 @@ async function submitResubmission(params: SubmitResubmissionParams): Promise<unk
 		}
 		else if (params.icDoc.uri !== null)
 		{
-			form.append('icDoc', {
+			form.append('icDoc', 
+			{
 				uri:  params.icDoc.uri,
 				name: params.icDoc.name !== null ? params.icDoc.name : 'file',
 				type: params.icDoc.mimeType !== null ? params.icDoc.mimeType : 'application/octet-stream',
@@ -551,7 +561,8 @@ async function submitResubmission(params: SubmitResubmissionParams): Promise<unk
 		}
 	}
 
-	const response = await fetch(`${API_BASE}/resubmit`, {
+	const response = await fetch(`${API_BASE}/resubmit`, 
+	{
 		method: 'POST',
 		body:   form,
 	})
@@ -575,7 +586,8 @@ function SectionHeader(props: SectionHeaderProps)
 				className="w-9 h-9 rounded-xl items-center justify-center mr-3"
 				style={{ backgroundColor: props.iconBg !== null ? props.iconBg : '' }}
 			>
-				{props.icon !== null && (
+				{props.icon !== null &&
+				(
 					<MaterialCommunityIcons
 						name={props.icon}
 						size={18}
@@ -596,7 +608,8 @@ function FieldLabel(props: FieldLabelProps)
 	return (
 		<Text className="text-gray-700 text-sm font-medium mb-2">
 			{props.label !== null ? props.label : ''}{' '}
-			{props.optional === true && (
+			{props.optional === true &&
+			(
 				<Text className="text-gray-400 font-normal">(Optional)</Text>
 			)}
 		</Text>
@@ -650,11 +663,13 @@ function TextFieldInput(props: TextFieldInputProps)
 	return (
 		<View>
 			<View
-				className={`flex-row items-${isMultiline ? 'start' : 'center'} bg-gray-50 border rounded-xl px-4 py-3.5 ${
+				className={`flex-row items-${isMultiline ? 'start' : 'center'} bg-gray-50 border rounded-xl px-4 py-3.5 
+				${
 					hasError ? 'border-red-400 bg-red-50' : 'border-gray-200'
 				}`}
 			>
-				{props.icon !== null && (
+				{props.icon !== null &&
+				(
 					<MaterialCommunityIcons
 						name={props.icon}
 						size={18}
@@ -690,11 +705,13 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 	return (
 		<View>
 			<View
-				className={`flex-row bg-gray-100 rounded-full p-1 ${
+				className={`flex-row bg-gray-100 rounded-full p-1 
+				${
 					props.error !== null ? 'border border-red-400' : ''
 				}`}
 			>
-				{props.options.map(
+				{props.options.map
+				(
 					(opt) =>
 					{
 						const active = props.value !== null && opt.value !== null && props.value === opt.value
@@ -712,7 +729,8 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							<TouchableOpacity
 							key={String(opt.value)}
 							onPress={handleOptionPress}
-							style={{
+							style=
+							{{
 								flex: 1,
 								flexDirection: 'row',
 								alignItems: 'center',
@@ -725,7 +743,8 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							accessibilityState={{ selected: active }}
 							accessibilityLabel={opt.label !== null ? opt.label : ''}
 							>
-							{opt.icon !== null && (
+							{opt.icon !== null &&
+							(
 								<MaterialCommunityIcons
 								name={opt.icon}
 								size={16}
@@ -735,10 +754,11 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							)}
 
 							<Text
-								style={{
-								fontSize: 14,
-								fontWeight: '500',
-								color: active ? '#374151' : '#9CA3AF',
+								style=
+								{{
+									fontSize: 14,
+									fontWeight: '500',
+									color: active ? '#374151' : '#9CA3AF',
 								}}
 							>
 								{opt.label !== null ? opt.label : ''}
@@ -765,7 +785,8 @@ function UploadBox(props: UploadBoxProps)
 		<View>
 			<TouchableOpacity
 				onPress={props.onPress !== null ? props.onPress : noopPressHandler}
-				className={`border border-dashed rounded-xl py-6 items-center justify-center ${
+				className={`border border-dashed rounded-xl py-6 items-center justify-center 
+				${
 					hasError
 						? 'bg-red-50 border-red-400'
 						: 'bg-gray-50 border-gray-300'
@@ -774,37 +795,39 @@ function UploadBox(props: UploadBoxProps)
 				style={webCursorStyle as object}
 				accessibilityRole="button"
 			>
-				{props.file !== null ? (
-					<>
-						<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
-							<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
-						</View>
-						<Text className="text-gray-800 text-sm font-medium">
-							{props.file.name !== null ? props.file.name : ''}
-						</Text>
-						<Text className="text-gray-400 text-xs mt-1">
-							{props.file.size !== null ? props.file.size : ''}
-						</Text>
-					</>
-				) : (
-					<>
-						<View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${hasError ? 'bg-red-100' : 'bg-gray-100'}`}>
-							<MaterialCommunityIcons
-								name="upload-outline"
-								size={22}
-								color={hasError ? '#F87171' : '#9CA3AF'}
-							/>
-						</View>
-						<Text className="text-gray-600 text-sm font-medium">
-							{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
-						</Text>
-						<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
-					</>
-				)}
+				{props.file !== null
+					? (
+						<>
+							<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
+								<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
+							</View>
+							<Text className="text-gray-800 text-sm font-medium">
+								{props.file.name !== null ? props.file.name : ''}
+							</Text>
+							<Text className="text-gray-400 text-xs mt-1">
+								{props.file.size !== null ? props.file.size : ''}
+							</Text>
+						</>
+					)
+					: (
+						<>
+							<View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${hasError ? 'bg-red-100' : 'bg-gray-100'}`}>
+								<MaterialCommunityIcons
+									name="upload-outline"
+									size={22}
+									color={hasError ? '#F87171' : '#9CA3AF'}
+								/>
+							</View>
+							<Text className="text-gray-600 text-sm font-medium">
+								{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
+							</Text>
+							<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
+						</>
+					)}
 			</TouchableOpacity>
 
-			{/* ── Remove button, shown only when a file is present ── */}
-			{props.file !== null && props.onRemove !== null && (
+			{props.file !== null && props.onRemove !== null &&
+			(
 				<TouchableOpacity
 					onPress={props.onRemove}
 					className="flex-row items-center justify-center mt-2 py-1"
@@ -832,7 +855,8 @@ function Toast(props: ToastProps)
 {
 	const opacity = useRef(new Animated.Value(0)).current
 
-	useEffect(
+	useEffect
+	(
 		() =>
 		{
 			if (props.visible)
@@ -1009,7 +1033,8 @@ export default function RegisterBusinessScreen()
 	)
 
 	// Recomputes every field error from the latest form values.
-	function revalidateAll(
+	function revalidateAll
+	(
 		cn:   string,
 		ssm:  string,
 		et:   EntityType | null,
@@ -1029,7 +1054,8 @@ export default function RegisterBusinessScreen()
 	function handleBlur(field: keyof TouchedFields)
 	{
 		setTouched((prev) => ({ ...prev, [field]: true }))
-		const next = revalidateAll(
+		const next = revalidateAll
+		(
 			companyName, ssmNumber, entityType, registeredAddress,
 			registeredEmail, icPassport, directorRole, ownershipPct, ssmDoc, icDoc,
 		)
@@ -1126,14 +1152,16 @@ export default function RegisterBusinessScreen()
 		errorKey: 'ssmDoc' | 'icDoc',
 	) =>
 	{
-		await pickDocument(
+		await pickDocument
+		(
 			(file) =>
 			{
 				setter(file)
 				setTouched((prev) => ({ ...prev, [errorKey]: true }))
 				setErrors((prev) => ({
 					...prev,
-					[errorKey]: validateUploadedFile(
+					[errorKey]: validateUploadedFile
+					(
 						file,
 						errorKey === 'ssmDoc'
 							? 'Certificate of Incorporation'
@@ -1167,7 +1195,8 @@ export default function RegisterBusinessScreen()
 	{
 		setTouched(touchAllFields())
 
-		const currentErrors = revalidateAll(
+		const currentErrors = revalidateAll
+		(
 			companyName, ssmNumber, entityType, registeredAddress,
 			registeredEmail, icPassport, directorRole, ownershipPct, ssmDoc, icDoc,
 		)
@@ -1181,7 +1210,6 @@ export default function RegisterBusinessScreen()
 		{
 			if (resubmissionToken !== null)
 			{
-				// ── Resubmission path ──────────────────────────────────
 				const params = createSubmitResubmissionParams()
 				params.resubmissionToken = resubmissionToken
 				params.companyName       = companyName
@@ -1199,7 +1227,6 @@ export default function RegisterBusinessScreen()
 			}
 			else
 			{
-				// ── Original registration path ─────────────────────────
 				const globalRecord = global as Record<string, unknown>
 				const globalToken  = globalRecord['__accessToken']
 				const accessToken  = typeof globalToken === 'string'
@@ -1246,8 +1273,10 @@ export default function RegisterBusinessScreen()
 
 	const isFormValid = useMemo
 	(
-		() => !hasErrors(
-			revalidateAll(
+		() => !hasErrors
+		(
+			revalidateAll
+			(
 				companyName, ssmNumber, entityType, registeredAddress,
 				registeredEmail, icPassport, directorRole,
 				ownershipPct, ssmDoc, icDoc,
@@ -1318,14 +1347,16 @@ export default function RegisterBusinessScreen()
 
 						<View className="flex-1 px-6 pt-8 pb-8">
 
-							{isVerifyingToken && (
+							{isVerifyingToken &&
+							(
 								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-center">
 									<ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 10 }} />
 									<Text className="text-blue-700 text-sm">Verifying your resubmission link…</Text>
 								</View>
 							)}
 
-							{tokenError !== null && (
+							{tokenError !== null &&
+							(
 								<View className="mb-5 px-4 py-4 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="alert-circle-outline"
@@ -1379,7 +1410,8 @@ export default function RegisterBusinessScreen()
 							<View className="mb-5">
 								<FieldLabel label="Entity Type" optional={null} />
 								<SegmentedControl<EntityType>
-									options={[
+									options=
+									{[
 										{ value: 'sdn_bhd',         label: 'Sdn Bhd',        icon: null },
 										{ value: 'sole_proprietor', label: 'Sole Proprietor', icon: null },
 									]}
@@ -1449,7 +1481,8 @@ export default function RegisterBusinessScreen()
 							<View className="mb-5">
 								<FieldLabel label="Role" optional={null} />
 								<SegmentedControl<DirectorRole>
-									options={[
+									options=
+									{[
 										{ value: 'director', label: 'Director', icon: 'shield-account-outline' },
 										{ value: 'owner',    label: 'Owner',    icon: 'account-outline' },
 									]}
@@ -1489,10 +1522,14 @@ export default function RegisterBusinessScreen()
 								<UploadBox
 									file={ssmDoc}
 									onPress={handlePickSsmDoc}
-									onRemove={() => {
-										setSsmDoc(null)
-										setErrors((prev) => ({ ...prev, ssmDoc: validateUploadedFile(null, 'Certificate of Incorporation') }))
-									}}
+									onRemove=
+									{
+										() =>
+										{
+											setSsmDoc(null)
+											setErrors((prev) => ({ ...prev, ssmDoc: validateUploadedFile(null, 'Certificate of Incorporation') }))
+										}
+									}
 									error={visibleError('ssmDoc')}
 								/>
 							</View>
@@ -1502,15 +1539,20 @@ export default function RegisterBusinessScreen()
 								<UploadBox
 									file={icDoc}
 									onPress={handlePickIcDoc}
-									onRemove={() => {
-										setIcDoc(null)
-										setErrors((prev) => ({ ...prev, icDoc: validateUploadedFile(null, 'Director IC / Passport Copy') }))
-									}}
+									onRemove=
+									{
+										() =>
+										{
+											setIcDoc(null)
+											setErrors((prev) => ({ ...prev, icDoc: validateUploadedFile(null, 'Director IC / Passport Copy') }))
+										}
+									}
 									error={visibleError('icDoc')}
 								/>
 							</View>
 
-							{emailSentBanner && (
+							{emailSentBanner &&
+							(
 								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="email-check-outline"
@@ -1531,7 +1573,8 @@ export default function RegisterBusinessScreen()
 								</View>
 							)}
 
-							{errorMessage !== null && (
+							{errorMessage !== null &&
+							(
 								<View className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="alert-circle-outline"
@@ -1543,9 +1586,11 @@ export default function RegisterBusinessScreen()
 								</View>
 							)}
 
-							{!emailSentBanner && (
+							{!emailSentBanner &&
+							(
 								<TouchableOpacity
-									className={`rounded-2xl py-4 items-center mb-6 shadow-md ${
+									className={`rounded-2xl py-4 items-center mb-6 shadow-md 
+									${
 										isFormValid && !isSubmitting
 											? 'bg-blue-600 shadow-blue-300'
 											: 'bg-gray-300 shadow-gray-200'
@@ -1557,15 +1602,18 @@ export default function RegisterBusinessScreen()
 									accessibilityLabel="Submit Registration"
 									accessibilityState={{ disabled: !isFormValid || isSubmitting }}
 								>
-									{isSubmitting ? (
-										<ActivityIndicator color="#fff" />
-									) : (
-										<Text className={`text-base font-semibold tracking-wide ${
-											isFormValid ? 'text-white' : 'text-gray-400'
-										}`}>
-											{resubmissionToken !== null ? 'Resubmit Registration' : 'Submit Registration'}
-										</Text>
-									)}
+									{isSubmitting
+										? (
+											<ActivityIndicator color="#fff" />
+										)
+										: (
+											<Text className={`text-base font-semibold tracking-wide 
+											${
+												isFormValid ? 'text-white' : 'text-gray-400'
+											}`}>
+												{resubmissionToken !== null ? 'Resubmit Registration' : 'Submit Registration'}
+											</Text>
+										)}
 								</TouchableOpacity>
 							)}
 
@@ -1583,7 +1631,8 @@ export default function RegisterBusinessScreen()
 
 			<Toast
 				visible={toastVisible}
-				message={
+				message=
+				{
 					resubmissionToken !== null
 						? 'Resubmission received!'
 						: 'Registration submitted! Redirecting…'

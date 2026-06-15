@@ -18,8 +18,6 @@ import {
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type TokenVerifyPhase = 'verifying' | 'invalid' | 'ready' | 'success'
 
 type SetPasswordState =
@@ -59,8 +57,6 @@ function createSetPasswordState(): SetPasswordState
 	}
 }
 
-// ─── API ──────────────────────────────────────────────────────────────────────
-
 type VerifyTokenApiResponse =
 {
 	valid:      boolean
@@ -80,7 +76,8 @@ function createVerifyTokenApiResponse(): VerifyTokenApiResponse
 async function fetchVerifyToken(token: string): Promise<VerifyTokenApiResponse>
 {
 	const result   = createVerifyTokenApiResponse()
-	const response = await fetch(
+	const response = await fetch
+	(
 		`${API_BASE}/user-onboarding/verify-token?token=${encodeURIComponent(token)}`
 	)
 	const data = (await response.json()) as Record<string, unknown>
@@ -101,11 +98,15 @@ async function fetchVerifyToken(token: string): Promise<VerifyTokenApiResponse>
 // Submits the new password to the user onboarding set-password endpoint and returns an error string on failure.
 async function postSetPassword(token: string, password: string): Promise<string>
 {
-	const response = await fetch(`${API_BASE}/user-onboarding/set-password`, {
-		method:  'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body:    JSON.stringify({ token, password }),
-	})
+	const response = await fetch
+	(
+		`${API_BASE}/user-onboarding/set-password`,
+		{
+			method:  'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body:    JSON.stringify({ token, password }),
+		},
+	)
 
 	if (!response.ok)
 	{
@@ -127,8 +128,6 @@ function resolveErrorMessage(e: unknown): string
 	return 'An unexpected error occurred.'
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 // Delegates password validation to the shared rule set and returns an empty string on success.
 function validatePassword(value: string): string
 {
@@ -143,16 +142,12 @@ function validateConfirmPassword(password: string, confirm: string): string
 	return error !== null ? error : ''
 }
 
-// ─── Token Extraction ─────────────────────────────────────────────────────────
-
 // Resolves a scalar string from a route param that may be a string or string array.
 function resolveScalarParam(raw: string | string[]): string
 {
 	if (Array.isArray(raw)) return raw.length > 0 ? raw[0] : ''
 	return raw
 }
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
 // Renders the user onboarding password setup screen, verifying the token on mount and collecting a new password.
 export default function SetUserPasswordScreen()
@@ -165,16 +160,13 @@ export default function SetUserPasswordScreen()
 
 	const [state, setState] = useState<SetPasswordState>(createSetPasswordState())
 
-	useEffect(
+	useEffect
+	(
 		() =>
 		{
 			if (tokenStr === '')
 			{
-				setState((prev) => ({
-					...prev,
-					phase:        'invalid',
-					verifyReason: 'No onboarding token was provided.',
-				}))
+				setState((prev) => ({ ...prev, phase: 'invalid', verifyReason: 'No onboarding token was provided.' }))
 				return
 			}
 			verifyToken()
@@ -195,13 +187,7 @@ export default function SetUserPasswordScreen()
 				return
 			}
 
-			setState((prev) => ({
-				...prev,
-				phase:      'ready',
-				email:      result.email,
-				role:       result.role,
-				department: result.department,
-			}))
+			setState((prev) => ({ ...prev, phase: 'ready', email: result.email, role: result.role, department: result.department }))
 		}
 		catch (e)
 		{
@@ -237,7 +223,8 @@ export default function SetUserPasswordScreen()
 
 			if (Platform.OS !== 'web')
 			{
-				setTimeout(
+				setTimeout
+				(
 					() =>
 					{
 						router.replace('/login' as never)
@@ -261,11 +248,7 @@ export default function SetUserPasswordScreen()
 	// Updates the confirm field and re-validates it against the current password.
 	const handleConfirmChange = (v: string) =>
 	{
-		setState((prev) => ({
-			...prev,
-			confirmPassword: v,
-			confirmError:    validateConfirmPassword(prev.password, v),
-		}))
+		setState((prev) => ({ ...prev, confirmPassword: v, confirmError: validateConfirmPassword(prev.password, v) }))
 	}
 
 	// Toggles the password field visibility.
@@ -283,7 +266,8 @@ export default function SetUserPasswordScreen()
 	const webContainerCls = Platform.OS === 'web' ? 'max-w-[480px] w-full self-center' : ''
 	const webCursorStyle  = Platform.OS === 'web' ? { cursor: 'pointer' } : null
 
-	const isFormReady = (
+	const isFormReady =
+	(
 		state.phase === 'ready'         &&
 		state.password !== ''           &&
 		state.confirmPassword !== ''    &&
@@ -306,16 +290,16 @@ export default function SetUserPasswordScreen()
 				>
 					<View className={`flex-1 justify-center px-6 py-12 ${webContainerCls}`}>
 
-						{/* ── Verifying phase ── */}
-						{state.phase === 'verifying' && (
+						{state.phase === 'verifying' &&
+						(
 							<View className="items-center py-24">
 								<ActivityIndicator size="large" color="#2563EB" />
 								<Text className="text-gray-500 mt-4 text-sm">Verifying your link…</Text>
 							</View>
 						)}
 
-						{/* ── Invalid phase ── */}
-						{state.phase === 'invalid' && (
+						{state.phase === 'invalid' &&
+						(
 							<View className="items-center py-16 px-4">
 								<View className="w-16 h-16 bg-red-100 rounded-2xl items-center justify-center mb-4">
 									<MaterialCommunityIcons name="link-off" size={32} color="#DC2626" />
@@ -329,8 +313,8 @@ export default function SetUserPasswordScreen()
 							</View>
 						)}
 
-						{/* ── Ready phase ── */}
-						{state.phase === 'ready' && (
+						{state.phase === 'ready' &&
+						(
 							<>
 								<View className="items-center mb-8">
 									<View className="w-20 h-20 bg-blue-600 rounded-3xl items-center justify-center shadow-lg mb-4">
@@ -339,14 +323,16 @@ export default function SetUserPasswordScreen()
 									<Text className="text-gray-900 text-2xl font-bold text-center">
 										Set Your Password
 									</Text>
-									{state.email !== '' && (
+									{state.email !== '' &&
+									(
 										<Text className="text-gray-500 text-sm text-center mt-1">
 											Setting up account for {state.email}
 										</Text>
 									)}
 								</View>
 
-								{(state.role !== '' || state.department !== '') && (
+								{(state.role !== '' || state.department !== '') &&
+								(
 									<View className="bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 mb-4">
 										<Text className="text-blue-800 text-xs font-semibold uppercase tracking-wide mb-2">
 											Your Assignment
@@ -380,7 +366,8 @@ export default function SetUserPasswordScreen()
 
 									<Text className="text-gray-700 text-sm font-medium mb-2">New Password</Text>
 									<View
-										className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 mb-1 ${
+										className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 mb-1 
+										${
 											state.passwordError !== '' ? 'border-red-400 bg-red-50' : 'border-gray-200'
 										}`}
 									>
@@ -413,7 +400,8 @@ export default function SetUserPasswordScreen()
 											/>
 										</TouchableOpacity>
 									</View>
-									{state.passwordError !== '' && (
+									{state.passwordError !== '' &&
+									(
 										<View className="flex-row items-center mb-3 ml-1">
 											<MaterialCommunityIcons
 												name="alert-circle-outline"
@@ -431,7 +419,8 @@ export default function SetUserPasswordScreen()
 										Confirm Password
 									</Text>
 									<View
-										className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 mb-1 ${
+										className={`flex-row items-center bg-gray-50 border rounded-xl px-4 py-3.5 mb-1 
+										${
 											state.confirmError !== '' ? 'border-red-400 bg-red-50' : 'border-gray-200'
 										}`}
 									>
@@ -448,7 +437,7 @@ export default function SetUserPasswordScreen()
 											value={state.confirmPassword}
 											onChangeText={handleConfirmChange}
 											onBlur={() =>
-											setState((prev) => ({...prev, confirmError: validateConfirmPassword(prev.password, prev.confirmPassword),}))
+											setState((prev) => ({ ...prev, confirmError: validateConfirmPassword(prev.password, prev.confirmPassword) }))
 											}
 											secureTextEntry={!state.showConfirm}
 											autoCapitalize="none"
@@ -464,7 +453,8 @@ export default function SetUserPasswordScreen()
 											/>
 										</TouchableOpacity>
 									</View>
-									{state.confirmError !== '' && (
+									{state.confirmError !== '' &&
+									(
 										<View className="flex-row items-center ml-1">
 											<MaterialCommunityIcons
 												name="alert-circle-outline"
@@ -479,7 +469,8 @@ export default function SetUserPasswordScreen()
 									)}
 								</View>
 
-								{state.submitError !== '' && (
+								{state.submitError !== '' &&
+								(
 									<View className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 										<MaterialCommunityIcons
 											name="alert-circle-outline"
@@ -492,7 +483,8 @@ export default function SetUserPasswordScreen()
 								)}
 
 								<TouchableOpacity
-									className={`rounded-2xl py-4 items-center shadow-md ${
+									className={`rounded-2xl py-4 items-center shadow-md 
+									${
 										isFormReady
 											? 'bg-blue-600 shadow-blue-300'
 											: 'bg-gray-300 shadow-gray-200'
@@ -503,21 +495,23 @@ export default function SetUserPasswordScreen()
 									accessibilityRole="button"
 									accessibilityLabel="Set password"
 								>
-									{state.isSubmitting ? (
-										<ActivityIndicator color="#fff" />
-									) : (
-										<Text className={`text-base font-semibold tracking-wide ${
-											isFormReady ? 'text-white' : 'text-gray-400'
-										}`}>
-											Set Password
-										</Text>
-									)}
+									{state.isSubmitting
+										? (
+											<ActivityIndicator color="#fff" />
+										)
+										: (
+											<Text className={`text-base font-semibold tracking-wide ${
+												isFormReady ? 'text-white' : 'text-gray-400'
+											}`}>
+												Set Password
+											</Text>
+										)}
 								</TouchableOpacity>
 							</>
 						)}
 
-						{/* ── Success phase ── */}
-						{state.phase === 'success' && (
+						{state.phase === 'success' &&
+						(
 							<View className="items-center py-16 px-4">
 								<View className="w-16 h-16 bg-emerald-100 rounded-2xl items-center justify-center mb-4">
 									<MaterialCommunityIcons

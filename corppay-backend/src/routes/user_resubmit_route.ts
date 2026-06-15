@@ -21,8 +21,6 @@ import {
 	validateUploadedFile,
 } from '../validation/registerUserValidation'
 
-// ─── Validation ───────────────────────────────────────────────────────────────
-
 type ResubmitValidationErrors =
 {
 	fullName:     string | null
@@ -108,8 +106,6 @@ function collectErrorMessages(errors: ResubmitValidationErrors): Record<string, 
 	return result
 }
 
-// ─── Body Helpers ─────────────────────────────────────────────────────────────
-
 // Extracts a string value from an unknown record by key, returning an empty string if absent or non-string.
 function extractBodyString(body: Record<string, unknown>, key: string): string
 {
@@ -127,7 +123,8 @@ function resolveMulterFile(files: Record<string, Express.Multer.File[]> | null, 
 }
 
 // Builds the validation input object from the request body and uploaded files.
-function buildValidationInput(
+function buildValidationInput
+(
 	body:  Record<string, unknown>,
 	files: Record<string, Express.Multer.File[]> | null,
 ): ValidateResubmitInput
@@ -145,8 +142,6 @@ function buildValidationInput(
 	return input
 }
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
-
 const uploadDir = path.resolve(process.cwd(), 'uploads')
 
 if (!fs.existsSync(uploadDir))
@@ -154,7 +149,8 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage({
+const storage = multer.diskStorage
+({
 	destination: (
 		_req: Request,
 		_file: Express.Multer.File,
@@ -177,7 +173,8 @@ const storage = multer.diskStorage({
 })
 
 // Allows only PDF, JPEG, and PNG files through the multer upload pipeline.
-function fileFilter(
+function fileFilter
+(
 	_req: Request,
 	file: Express.Multer.File,
 	cb: FileFilterCallback,
@@ -195,11 +192,10 @@ function fileFilter(
 }
 
 const upload       = multer({ storage, fileFilter })
-const uploadFields = upload.fields([
+const uploadFields = upload.fields
+([
 	{ name: 'idDoc', maxCount: 1 },
 ])
-
-// ─── Document Helpers ─────────────────────────────────────────────────────────
 
 // Builds an IUploadedDocument from a multer file object with the given field name.
 function buildDocument(file: Express.Multer.File, fieldName: string): IUploadedDocument
@@ -215,10 +211,7 @@ function buildDocument(file: Express.Multer.File, fieldName: string): IUploadedD
 }
 
 // Merges an incoming uploaded identity file with the application's existing documents, replacing the matching field.
-function mergeDocuments(
-	existing: IUploadedDocument[],
-	idFile:   Express.Multer.File | null,
-): IUploadedDocument[]
+function mergeDocuments(existing: IUploadedDocument[], idFile:   Express.Multer.File | null): IUploadedDocument[]
 {
 	const existingId = existing.find((d) => d.fieldName === 'identity_doc')
 
@@ -233,8 +226,6 @@ function mergeDocuments(
 
 	return [...others, idDoc]
 }
-
-// ─── Router ───────────────────────────────────────────────────────────────────
 
 const router = Router()
 
@@ -274,7 +265,8 @@ router.get('/verify', async (req: Request, res: Response) =>
 		const targetCompany = await Company.findById(application.targetCompanyId).select('_id name').lean()
 		const targetCompanyName = targetCompany !== null ? targetCompany.name : ''
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			email:        tokenVerify.email,
 			fullName:     application.fullName,
 			dateOfBirth:  application.dateOfBirth,
@@ -312,7 +304,8 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 
 	if (hasResubmitErrors(validationErrors))
 	{
-		return res.status(400).json({
+		return res.status(400).json
+		({
 			error:  'Validation failed.',
 			errors: collectErrorMessages(validationErrors),
 		})
@@ -356,7 +349,8 @@ router.post('/', uploadFields, async (req: Request, res: Response) =>
 			return res.status(400).json({ error: resubmitResult.reason })
 		}
 
-		return res.status(200).json({
+		return res.status(200).json
+		({
 			message: 'Resubmission received. Your application is under review.',
 		})
 	}

@@ -299,7 +299,8 @@ async function pickDocument(setter: (f: UploadedFile) => void): Promise<void>
 {
 	if (Platform.OS === 'web')
 	{
-		await new Promise<void>(
+		await new Promise<void>
+		(
 			(resolve) =>
 			{
 				const input  = document.createElement('input')
@@ -489,7 +490,8 @@ function SectionHeader(props: SectionHeaderProps)
 				className="w-9 h-9 rounded-xl items-center justify-center mr-3"
 				style={{ backgroundColor: props.iconBg !== null ? props.iconBg : '' }}
 			>
-				{props.icon !== null && (
+				{props.icon !== null &&
+				(
 					<MaterialCommunityIcons
 						name={props.icon}
 						size={18}
@@ -510,7 +512,8 @@ function FieldLabel(props: FieldLabelProps)
 	return (
 		<Text className="text-gray-700 text-sm font-medium mb-2">
 			{props.label !== null ? props.label : ''}{' '}
-			{props.optional === true && (
+			{props.optional === true &&
+			(
 				<Text className="text-gray-400 font-normal">(Optional)</Text>
 			)}
 		</Text>
@@ -568,7 +571,8 @@ function TextFieldInput(props: TextFieldInputProps)
 					hasError ? 'border-red-400 bg-red-50' : 'border-gray-200'
 				}`}
 			>
-				{props.icon !== null && (
+				{props.icon !== null &&
+				(
 					<MaterialCommunityIcons
 						name={props.icon}
 						size={18}
@@ -608,7 +612,8 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 					props.error !== null ? 'border border-red-400' : ''
 				}`}
 			>
-				{props.options.map(
+				{props.options.map
+				(
 					(opt) =>
 					{
 						const active = props.value !== null && opt.value !== null && props.value === opt.value
@@ -626,7 +631,8 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							<TouchableOpacity
 							key={String(opt.value)}
 							onPress={handleOptionPress}
-							style={{
+							style=
+							{{
 								flex: 1,
 								flexDirection: 'row',
 								alignItems: 'center',
@@ -639,7 +645,8 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							accessibilityState={{ selected: active }}
 							accessibilityLabel={opt.label !== null ? opt.label : ''}
 							>
-							{opt.icon !== null && (
+							{opt.icon !== null &&
+							(
 								<MaterialCommunityIcons
 								name={opt.icon}
 								size={16}
@@ -649,10 +656,11 @@ function SegmentedControl<T extends string>(props: SegmentedControlProps<T>)
 							)}
 
 							<Text
-								style={{
-								fontSize: 13,
-								fontWeight: '500',
-								color: active ? '#374151' : '#9CA3AF',
+								style=
+								{{
+									fontSize: 13,
+									fontWeight: '500',
+									color: active ? '#374151' : '#9CA3AF',
 								}}
 							>
 								{opt.label !== null ? opt.label : ''}
@@ -680,7 +688,8 @@ function UploadBox(props: UploadBoxProps)
 		<View>
 			<TouchableOpacity
 				onPress={props.onPress !== null ? props.onPress : noopPressHandler}
-				className={`border border-dashed rounded-xl py-6 items-center justify-center ${
+				className={`border border-dashed rounded-xl py-6 items-center justify-center 
+				${
 					hasError
 						? 'bg-red-50 border-red-400'
 						: 'bg-gray-50 border-gray-300'
@@ -689,36 +698,39 @@ function UploadBox(props: UploadBoxProps)
 				style={webCursorStyle as object}
 				accessibilityRole="button"
 			>
-				{props.file !== null ? (
-					<>
-						<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
-							<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
-						</View>
-						<Text className="text-gray-800 text-sm font-medium">
-							{props.file.name !== null ? props.file.name : ''}
-						</Text>
-						<Text className="text-gray-400 text-xs mt-1">
-							{props.file.size !== null ? props.file.size : ''}
-						</Text>
-					</>
-				) : (
-					<>
-						<View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${hasError ? 'bg-red-100' : 'bg-gray-100'}`}>
-							<MaterialCommunityIcons
-								name="upload-outline"
-								size={22}
-								color={hasError ? '#F87171' : '#9CA3AF'}
-							/>
-						</View>
-						<Text className="text-gray-600 text-sm font-medium">
-							{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
-						</Text>
-						<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
-					</>
-				)}
+				{props.file !== null
+					? (
+						<>
+							<View className="w-10 h-10 bg-blue-50 rounded-full items-center justify-center mb-2">
+								<MaterialCommunityIcons name="file-check-outline" size={22} color="#2563EB" />
+							</View>
+							<Text className="text-gray-800 text-sm font-medium">
+								{props.file.name !== null ? props.file.name : ''}
+							</Text>
+							<Text className="text-gray-400 text-xs mt-1">
+								{props.file.size !== null ? props.file.size : ''}
+							</Text>
+						</>
+					)
+					: (
+						<>
+							<View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${hasError ? 'bg-red-100' : 'bg-gray-100'}`}>
+								<MaterialCommunityIcons
+									name="upload-outline"
+									size={22}
+									color={hasError ? '#F87171' : '#9CA3AF'}
+								/>
+							</View>
+							<Text className="text-gray-600 text-sm font-medium">
+								{Platform.OS === 'web' ? 'Click to upload or drag and drop' : 'Tap to select a file'}
+							</Text>
+							<Text className="text-gray-400 text-xs mt-1">PDF, JPG or PNG (Max 5 MB)</Text>
+						</>
+					)}
 			</TouchableOpacity>
 
-			{props.file !== null && props.onRemove !== null && (
+			{props.file !== null && props.onRemove !== null &&
+			(
 				<TouchableOpacity
 					onPress={props.onRemove}
 					className="flex-row items-center justify-center mt-2 py-1"
@@ -746,12 +758,14 @@ function Toast(props: ToastProps)
 {
 	const opacity = useRef(new Animated.Value(0)).current
 
-	useEffect(
+	useEffect
+	(
 		() =>
 		{
 			if (props.visible)
 			{
-				Animated.sequence([
+				Animated.sequence
+				([
 					Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
 					Animated.delay(1800),
 					Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
@@ -893,7 +907,8 @@ export default function RegisterUserScreen()
 
 					if (idDocData !== null) setIdDoc(idDocData)
 
-					setTouched((prev) => ({
+					setTouched((prev) => 
+					({
 						...prev,
 						email:        true,
 						fullName:     nameRaw     !== '' ? true : prev.fullName,
@@ -943,7 +958,8 @@ export default function RegisterUserScreen()
 	)
 
 	// Recomputes every field error from the latest form values.
-	function revalidateAll(
+	function revalidateAll
+	(
 		name:    string,
 		dob:     string,
 		nat:     string,
@@ -964,7 +980,8 @@ export default function RegisterUserScreen()
 	function handleBlur(field: keyof TouchedFields)
 	{
 		setTouched((prev) => ({ ...prev, [field]: true }))
-		const next = revalidateAll(
+		const next = revalidateAll
+		(
 			fullName, dateOfBirth, nationality, gender,
 			email, mobileNumber, fullAddress, documentType, targetCompanyId, idDoc,
 		)
@@ -1057,7 +1074,8 @@ export default function RegisterUserScreen()
 	// Opens the document picker and updates the identity document state and its error.
 	const handlePickIdDoc = async () =>
 	{
-		await pickDocument(
+		await pickDocument
+		(
 			(file) =>
 			{
 				setIdDoc(file)
@@ -1093,7 +1111,8 @@ export default function RegisterUserScreen()
 	{
 		setTouched(touchAllFields())
 
-		const currentErrors = revalidateAll(
+		const currentErrors = revalidateAll
+		(
 			fullName, dateOfBirth, nationality, gender,
 			email, mobileNumber, fullAddress, documentType, targetCompanyId, idDoc,
 		)
@@ -1163,8 +1182,10 @@ export default function RegisterUserScreen()
 
 	const isFormValid = useMemo
 	(
-		() => !hasErrors(
-			revalidateAll(
+		() => !hasErrors
+		(
+			revalidateAll
+			(
 				fullName, dateOfBirth, nationality, gender,
 				email, mobileNumber, fullAddress, documentType, targetCompanyId, idDoc,
 			)
@@ -1233,14 +1254,16 @@ export default function RegisterUserScreen()
 
 						<View className="flex-1 px-6 pt-8 pb-8">
 
-							{isVerifyingToken && (
+							{isVerifyingToken &&
+							(
 								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-center">
 									<ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 10 }} />
 									<Text className="text-blue-700 text-sm">Verifying your resubmission link…</Text>
 								</View>
 							)}
 
-							{tokenError !== null && (
+							{tokenError !== null &&
+							(
 								<View className="mb-5 px-4 py-4 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="alert-circle-outline"
@@ -1262,61 +1285,68 @@ export default function RegisterUserScreen()
 							<View className="mb-5">
 								<FieldLabel label="Company you're joining" optional={null} />
 
-								{resubmissionToken !== null ? (
-									<View className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3.5 flex-row items-center">
-										<MaterialCommunityIcons
-											name="office-building-outline"
-											size={18}
-											color="#9CA3AF"
-											style={{ marginRight: 10 }}
-										/>
-										<Text className="text-gray-600 text-sm flex-1">
-											{targetCompanyName !== '' ? targetCompanyName : 'Selected company'}
-										</Text>
-										<MaterialCommunityIcons name="lock-outline" size={16} color="#9CA3AF" />
-									</View>
-								) : (
-									<>
-										{availableCompanies.length === 0 ? (
-											<View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
-												<Text className="text-gray-500 text-sm">No companies are currently available to join.</Text>
-											</View>
-										) : (
-											availableCompanies.map(
-												(company) => (
-													<TouchableOpacity
-														key={company.companyId}
-														onPress={() => handleSelectCompany(company.companyId)}
-														className={`border rounded-xl px-4 py-3.5 mb-2 flex-row items-center ${
-															targetCompanyId === company.companyId
-																? 'border-blue-500 bg-blue-50'
-																: 'border-gray-200 bg-gray-50'
-														}`}
-														style={Platform.OS === 'web' ? { cursor: 'pointer' } as object : undefined}
-														accessibilityRole="button"
-														accessibilityLabel={`Join ${company.companyName}`}
-													>
-														<MaterialCommunityIcons
-															name="office-building-outline"
-															size={18}
-															color={targetCompanyId === company.companyId ? '#2563EB' : '#9CA3AF'}
-															style={{ marginRight: 10 }}
-														/>
-														<Text className={`flex-1 text-sm font-medium ${
-															targetCompanyId === company.companyId ? 'text-blue-700' : 'text-gray-700'
-														}`}>
-															{company.companyName}
-														</Text>
-														{targetCompanyId === company.companyId && (
-															<MaterialCommunityIcons name="check-circle" size={18} color="#2563EB" />
-														)}
-													</TouchableOpacity>
+								{resubmissionToken !== null
+									? (
+										<View className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-3.5 flex-row items-center">
+											<MaterialCommunityIcons
+												name="office-building-outline"
+												size={18}
+												color="#9CA3AF"
+												style={{ marginRight: 10 }}
+											/>
+											<Text className="text-gray-600 text-sm flex-1">
+												{targetCompanyName !== '' ? targetCompanyName : 'Selected company'}
+											</Text>
+											<MaterialCommunityIcons name="lock-outline" size={16} color="#9CA3AF" />
+										</View>
+									)
+									: (
+										<>
+											{availableCompanies.length === 0
+												? (
+													<View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5">
+														<Text className="text-gray-500 text-sm">No companies are currently available to join.</Text>
+													</View>
 												)
-											)
-										)}
-										<FieldError message={visibleError('targetCompanyId')} />
-									</>
-								)}
+												: (
+													availableCompanies.map
+													(
+														(company) =>
+														(
+															<TouchableOpacity
+																key={company.companyId}
+																onPress={() => handleSelectCompany(company.companyId)}
+																className={`border rounded-xl px-4 py-3.5 mb-2 flex-row items-center ${
+																	targetCompanyId === company.companyId
+																		? 'border-blue-500 bg-blue-50'
+																		: 'border-gray-200 bg-gray-50'
+																}`}
+																style={Platform.OS === 'web' ? { cursor: 'pointer' } as object : undefined}
+																accessibilityRole="button"
+																accessibilityLabel={`Join ${company.companyName}`}
+															>
+																<MaterialCommunityIcons
+																	name="office-building-outline"
+																	size={18}
+																	color={targetCompanyId === company.companyId ? '#2563EB' : '#9CA3AF'}
+																	style={{ marginRight: 10 }}
+																/>
+																<Text className={`flex-1 text-sm font-medium ${
+																	targetCompanyId === company.companyId ? 'text-blue-700' : 'text-gray-700'
+																}`}>
+																	{company.companyName}
+																</Text>
+																{targetCompanyId === company.companyId &&
+																(
+																	<MaterialCommunityIcons name="check-circle" size={18} color="#2563EB" />
+																)}
+															</TouchableOpacity>
+														)
+													)
+												)}
+											<FieldError message={visibleError('targetCompanyId')} />
+										</>
+									)}
 							</View>
 
 							<View className="h-px bg-gray-200 my-6" />
@@ -1458,7 +1488,8 @@ export default function RegisterUserScreen()
 							<View className="mb-5">
 								<FieldLabel label="Document Type" optional={null} />
 								<SegmentedControl<DocumentType>
-									options={[
+									options=
+									{[
 										{ value: 'passport',        label: 'Passport',  icon: null },
 										{ value: 'national_id',     label: 'National ID', icon: null },
 										{ value: 'drivers_license', label: 'License',   icon: null },
@@ -1479,7 +1510,8 @@ export default function RegisterUserScreen()
 								/>
 							</View>
 
-							{emailSentBanner && (
+							{emailSentBanner &&
+							(
 								<View className="mb-5 px-4 py-4 bg-blue-50 border border-blue-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="email-check-outline"
@@ -1500,7 +1532,8 @@ export default function RegisterUserScreen()
 								</View>
 							)}
 
-							{errorMessage !== null && (
+							{errorMessage !== null &&
+							(
 								<View className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-row items-start">
 									<MaterialCommunityIcons
 										name="alert-circle-outline"
@@ -1512,9 +1545,11 @@ export default function RegisterUserScreen()
 								</View>
 							)}
 
-							{!emailSentBanner && (
+							{!emailSentBanner &&
+							(
 								<TouchableOpacity
-									className={`rounded-2xl py-4 items-center mb-6 shadow-md ${
+									className={`rounded-2xl py-4 items-center mb-6 shadow-md 
+									${
 										isFormValid && !isSubmitting
 											? 'bg-blue-600 shadow-blue-300'
 											: 'bg-gray-300 shadow-gray-200'
@@ -1526,15 +1561,18 @@ export default function RegisterUserScreen()
 									accessibilityLabel="Submit Registration"
 									accessibilityState={{ disabled: !isFormValid || isSubmitting }}
 								>
-									{isSubmitting ? (
-										<ActivityIndicator color="#fff" />
-									) : (
-										<Text className={`text-base font-semibold tracking-wide ${
-											isFormValid ? 'text-white' : 'text-gray-400'
-										}`}>
-											{resubmissionToken !== null ? 'Resubmit Application' : 'Submit Registration'}
-										</Text>
-									)}
+									{isSubmitting
+										? (
+											<ActivityIndicator color="#fff" />
+										)
+										: (
+											<Text className={`text-base font-semibold tracking-wide 
+											${
+												isFormValid ? 'text-white' : 'text-gray-400'
+											}`}>
+												{resubmissionToken !== null ? 'Resubmit Application' : 'Submit Registration'}
+											</Text>
+										)}
 								</TouchableOpacity>
 							)}
 
@@ -1552,7 +1590,8 @@ export default function RegisterUserScreen()
 
 			<Toast
 				visible={toastVisible}
-				message={
+				message=
+				{
 					resubmissionToken !== null
 						? 'Resubmission received!'
 						: 'Registration submitted! Redirecting…'

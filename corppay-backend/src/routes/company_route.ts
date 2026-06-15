@@ -15,8 +15,6 @@ import { createSendVerificationEmailParams, sendVerificationEmail } from '../ser
 import { createSavePendingRegistrationPayload, findActivePendingByName, findActivePendingBySsm, savePendingRegistration, verifyEmailToken } from '../services/admin_pending_registration_service'
 import { findCompanyByName, findCompanyBySsm } from '../services/company_service'
 
-// ─── Body Extraction ──────────────────────────────────────────────────────────
-
 // Extracts a string value from an unknown record by key, returning an empty string if absent or non-string.
 function extractBodyString(body: Record<string, unknown>, key: string): string
 {
@@ -31,8 +29,6 @@ function extractBodyDirector(body: Record<string, unknown>): Record<string, unkn
 	if (typeof val !== 'object' || val === null) return {}
 	return val as Record<string, unknown>
 }
-
-// ─── Validation ───────────────────────────────────────────────────────────────
 
 type UploadedFileInfo =
 {
@@ -96,7 +92,8 @@ function collectErrorMessages(errors: FormErrors): Record<string, string>
 }
 
 // Extracts all registration field values from the request body and multer file map, adapting them to the shared validator shape.
-function buildRegistrationFieldValues(
+function buildRegistrationFieldValues
+(
 	body:  Record<string, unknown>,
 	files: Record<string, Express.Multer.File[]> | null,
 ): RegistrationFieldValues
@@ -142,8 +139,6 @@ function buildRegistrationFieldValues(
 	return values
 }
 
-// ─── Multer ───────────────────────────────────────────────────────────────────
-
 const uploadDir = path.resolve(process.cwd(), 'uploads')
 
 if (!fs.existsSync(uploadDir))
@@ -151,7 +146,8 @@ if (!fs.existsSync(uploadDir))
 	fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-const storage = multer.diskStorage({
+const storage = multer.diskStorage
+({
 	// Resolves the destination directory for incoming uploaded files.
 	destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) =>
 	{
@@ -183,12 +179,11 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
 }
 
 const upload       = multer({ storage, fileFilter })
-const uploadFields = upload.fields([
+const uploadFields = upload.fields
+([
 	{ name: 'ssmDoc', maxCount: 1 },
 	{ name: 'icDoc',  maxCount: 1 },
 ])
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 type ResolvedFiles =
 {
@@ -277,8 +272,6 @@ function resolveDirectorRole(body: Record<string, unknown>): string
 	return extractBodyString(body, 'director.role')
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-
 const router = Router()
 
 // Validates all registration fields, checks for SSM conflicts, saves a pending registration, and dispatches a verification email.
@@ -288,7 +281,8 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 	const body  = req.body  as Record<string, unknown>
 
 	const values = buildRegistrationFieldValues(body, files)
-	const errors = validateAllFields(
+	const errors = validateAllFields
+	(
 		values.companyName,
 		values.ssmNumber,
 		values.entityType,
