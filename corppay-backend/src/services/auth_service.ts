@@ -11,8 +11,9 @@ dotenv.config()
 const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  as string
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string
 
-const MAX_ATTEMPTS  = 5
-const LOCK_DURATION = 15 * 60 * 1000
+const MAX_ATTEMPTS           = 5
+const LOCK_DURATION          = 15 * 60 * 1000
+const ATTEMPT_DECAY_INTERVAL = LOCK_DURATION / MAX_ATTEMPTS
 
 export type SafeLoginUser =
 {
@@ -34,6 +35,13 @@ type TokenClaims =
 {
 	sub:  string
 	role: string
+}
+
+type LockableAccount =
+{
+	loginAttempts:     number
+	lockedUntil:       Date | null
+	lastFailedLoginAt: Date | null
 }
 
 // Creates a fully initialized SafeLoginUser with empty/zero defaults.
@@ -229,11 +237,42 @@ function hashToken(token: string): string
 	return crypto.createHash('sha256').update(token).digest('hex')
 }
 
+// Restores decayed login attempts based on elapsed time since the last failed attempt and clears the lock once the counter reaches zero.
+function applyAttemptDecay(account: LockableAccount): void
+{
+	if (account.lastFailedLoginAt === null)
+	{
+		return
+	}
+
+	const lastFailed = account.lastFailedLoginAt
+	const elapsed    = Date.now() - lastFailed.getTime()
+	const restored   = Math.floor(elapsed / ATTEMPT_DECAY_INTERVAL)
+
+	if (restored <= 0)
+	{
+		return
+	}
+
+	const remaining = account.loginAttempts - restored
+
+	if (remaining <= 0)
+	{
+		account.loginAttempts     = 0
+		account.lockedUntil       = null
+		account.lastFailedLoginAt = null
+		return
+	}
+
+	account.loginAttempts     = remaining
+	account.lastFailedLoginAt = new Date(lastFailed.getTime() + restored * ATTEMPT_DECAY_INTERVAL)
+}
+
 // Authenticates a regular user, enforcing lockout policy, and returns a LoginResult.
 async function loginRegularUser(email: string, password: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
-	const user = await User.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+	const user = await User.findOne({ email }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil +lastFailedLoginAt')
 
 	if (user === null || !user.isActive)
 	{
@@ -245,11 +284,14 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 		throw genericError
 	}
 
+	applyAttemptDecay(user)
+
 	const valid = await user.comparePassword(password)
 
 	if (!valid)
 	{
-		user.loginAttempts += 1
+		user.loginAttempts    += 1
+		user.lastFailedLoginAt = new Date()
 		if (user.loginAttempts >= MAX_ATTEMPTS)
 		{
 			user.lockedUntil = new Date(Date.now() + LOCK_DURATION)
@@ -258,9 +300,10 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 		throw genericError
 	}
 
-	user.loginAttempts = 0
-	user.lockedUntil   = null
-	user.lastLoginAt   = new Date()
+	user.loginAttempts     = 0
+	user.lockedUntil       = null
+	user.lastFailedLoginAt = null
+	user.lastLoginAt       = new Date()
 
 	const accessToken  = issueAccessToken(claimsFromUser(user))
 	const refreshToken = issueRefreshToken()
@@ -289,7 +332,7 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 async function loginAdminUser(email: string, password: string, companyId: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
-	const admin = await AdminUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+	const admin = await AdminUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil +lastFailedLoginAt')
 
 	if (admin === null || !admin.isActive)
 	{
@@ -301,11 +344,14 @@ async function loginAdminUser(email: string, password: string, companyId: string
 		throw genericError
 	}
 
+	applyAttemptDecay(admin)
+
 	const valid = await admin.comparePassword(password)
 
 	if (!valid)
 	{
-		admin.loginAttempts += 1
+		admin.loginAttempts    += 1
+		admin.lastFailedLoginAt = new Date()
 		if (admin.loginAttempts >= MAX_ATTEMPTS)
 		{
 			admin.lockedUntil = new Date(Date.now() + LOCK_DURATION)
@@ -314,9 +360,10 @@ async function loginAdminUser(email: string, password: string, companyId: string
 		throw genericError
 	}
 
-	admin.loginAttempts = 0
-	admin.lockedUntil   = null
-	admin.lastLoginAt   = new Date()
+	admin.loginAttempts     = 0
+	admin.lockedUntil       = null
+	admin.lastFailedLoginAt = null
+	admin.lastLoginAt       = new Date()
 
 	const accessToken  = issueAccessToken(claimsFromAdminUser(admin))
 	const refreshToken = issueRefreshToken()
@@ -340,7 +387,7 @@ async function loginAdminUser(email: string, password: string, companyId: string
 async function loginCompanyUser(email: string, password: string, companyId: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
-	const member = await CompanyUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil')
+	const member = await CompanyUser.findOne({ email, companyId }).select('+passwordHash +refreshTokens +loginAttempts +lockedUntil +lastFailedLoginAt')
 
 	if (member === null || !member.isActive)
 	{
@@ -352,11 +399,14 @@ async function loginCompanyUser(email: string, password: string, companyId: stri
 		throw genericError
 	}
 
+	applyAttemptDecay(member)
+
 	const valid = await member.comparePassword(password)
 
 	if (!valid)
 	{
-		member.loginAttempts += 1
+		member.loginAttempts    += 1
+		member.lastFailedLoginAt = new Date()
 		if (member.loginAttempts >= MAX_ATTEMPTS)
 		{
 			member.lockedUntil = new Date(Date.now() + LOCK_DURATION)
@@ -365,9 +415,10 @@ async function loginCompanyUser(email: string, password: string, companyId: stri
 		throw genericError
 	}
 
-	member.loginAttempts = 0
-	member.lockedUntil   = null
-	member.lastLoginAt   = new Date()
+	member.loginAttempts     = 0
+	member.lockedUntil       = null
+	member.lastFailedLoginAt = null
+	member.lastLoginAt       = new Date()
 
 	const accessToken  = issueAccessToken(claimsFromCompanyUser(member))
 	const refreshToken = issueRefreshToken()

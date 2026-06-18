@@ -3,32 +3,34 @@ import mongoose, { Document, Schema } from 'mongoose'
 
 export interface IAdminUser extends Document
 {
-	email:          string
-	passwordHash:   string
-	ssmNumber:      string
-	companyId:      mongoose.Types.ObjectId
-	loginAttempts:  number
-	lockedUntil:    Date | null
-	refreshTokens:  string[]
-	isActive:       boolean
-	lastLoginAt:    Date
-	createdAt:      Date
-	updatedAt:      Date
+	email:             string
+	passwordHash:      string
+	ssmNumber:         string
+	companyId:         mongoose.Types.ObjectId
+	loginAttempts:     number
+	lockedUntil:       Date | null
+	lastFailedLoginAt: Date | null
+	refreshTokens:     string[]
+	isActive:          boolean
+	lastLoginAt:       Date
+	createdAt:         Date
+	updatedAt:         Date
 	comparePassword(candidate: string): Promise<boolean>
 }
 
 const AdminUserSchema = new Schema<IAdminUser>
 (
 	{
-		email:         { type: String,   required: true, lowercase: true, trim: true },
-		passwordHash:  { type: String,   required: true,  select: false },
-		ssmNumber:     { type: String,   required: true, uppercase: true, trim: true },
-		companyId:     { type: Schema.Types.ObjectId, ref: 'Company', required: true },
-		loginAttempts: { type: Number,   required: true,  default: 0 },
-		lockedUntil:   { type: Date,     default: null },
-		refreshTokens: { type: [String], required: true,  default: [],   select: false },
-		isActive:      { type: Boolean,  required: true,  default: true },
-		lastLoginAt:   { type: Date,     required: true,  default: () => new Date(0) },
+		email:             { type: String,   required: true, lowercase: true, trim: true },
+		passwordHash:      { type: String,   required: true,  select: false },
+		ssmNumber:         { type: String,   required: true, uppercase: true, trim: true },
+		companyId:         { type: Schema.Types.ObjectId, ref: 'Company', required: true },
+		loginAttempts:     { type: Number,   required: true,  default: 0 },
+		lockedUntil:       { type: Date,     default: null },
+		lastFailedLoginAt: { type: Date,     default: null },
+		refreshTokens:     { type: [String], required: true,  default: [],   select: false },
+		isActive:          { type: Boolean,  required: true,  default: true },
+		lastLoginAt:       { type: Date,     required: true,  default: () => new Date(0) },
 	},
 	{ timestamps: true },
 )

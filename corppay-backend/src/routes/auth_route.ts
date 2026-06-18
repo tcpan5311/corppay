@@ -8,11 +8,12 @@ const router = Router()
 
 const loginLimiter = rateLimit
 ({
-	windowMs:        15 * 60 * 1000,
-	max:             10,
-	message:         { error: 'Too many login attempts. Try again in 15 minutes.' },
-	standardHeaders: true,
-	legacyHeaders:   false,
+	windowMs:               15 * 60 * 1000,
+	max:                    10,
+	skipSuccessfulRequests: true,
+	message:                { error: 'Too many login attempts. Try again in 15 minutes.' },
+	standardHeaders:        true,
+	legacyHeaders:          false,
 })
 
 // Resolves a string or string-array header value to a plain string, returning empty on absence.
