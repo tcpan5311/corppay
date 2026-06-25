@@ -11,9 +11,10 @@ dotenv.config()
 const ACCESS_SECRET  = process.env.JWT_ACCESS_SECRET  as string
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string
 
-const MAX_ATTEMPTS           = 5
-const LOCK_DURATION          = 15 * 60 * 1000
-const ATTEMPT_DECAY_INTERVAL = LOCK_DURATION / MAX_ATTEMPTS
+const FREE_ATTEMPTS    = 5
+const BASE_BACKOFF_MS  = 1000
+const MAX_BACKOFF_MS   = 15 * 60 * 1000
+const ATTEMPT_RESET_MS = 15 * 60 * 1000
 
 export type SafeLoginUser =
 {
@@ -237,38 +238,56 @@ function hashToken(token: string): string
 	return crypto.createHash('sha256').update(token).digest('hex')
 }
 
-// Restores decayed login attempts based on elapsed time since the last failed attempt and clears the lock once the counter reaches zero.
-function applyAttemptDecay(account: LockableAccount): void
+// Adds a delay after repeated failed attempts, increasing up to a maximum limit.
+function backoffDelayMs(failedAttempts: number): number
+{
+	if (failedAttempts <= FREE_ATTEMPTS)
+	{
+		return 0
+	}
+
+	const exponent = failedAttempts - FREE_ATTEMPTS - 1
+	const delay    = BASE_BACKOFF_MS * Math.pow(2, exponent)
+	return delay < MAX_BACKOFF_MS ? delay : MAX_BACKOFF_MS
+}
+
+// Resets the failure count after a period of inactivity to avoid unnecessary lockouts.
+function applyAttemptReset(account: LockableAccount): void
 {
 	if (account.lastFailedLoginAt === null)
 	{
 		return
 	}
 
-	const lastFailed = account.lastFailedLoginAt
-	const elapsed    = Date.now() - lastFailed.getTime()
-	const restored   = Math.floor(elapsed / ATTEMPT_DECAY_INTERVAL)
+	const elapsed = Date.now() - account.lastFailedLoginAt.getTime()
 
-	if (restored <= 0)
-	{
-		return
-	}
-
-	const remaining = account.loginAttempts - restored
-
-	if (remaining <= 0)
+	if (elapsed >= ATTEMPT_RESET_MS)
 	{
 		account.loginAttempts     = 0
 		account.lockedUntil       = null
 		account.lastFailedLoginAt = null
-		return
 	}
-
-	account.loginAttempts     = remaining
-	account.lastFailedLoginAt = new Date(lastFailed.getTime() + restored * ATTEMPT_DECAY_INTERVAL)
 }
 
-// Authenticates a regular user, enforcing lockout policy, and returns a LoginResult.
+// Returns when another failed attempt is allowed and valid logins are never blocked.
+function backoffRetryAt(account: LockableAccount): Date | null
+{
+	if (account.lastFailedLoginAt === null)
+	{
+		return null
+	}
+
+	const delay = backoffDelayMs(account.loginAttempts)
+
+	if (delay <= 0)
+	{
+		return null
+	}
+
+	return new Date(account.lastFailedLoginAt.getTime() + delay)
+}
+
+// Authenticates a regular user with exponential backoff on failed attempts, and returns a LoginResult.
 async function loginRegularUser(email: string, password: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
@@ -279,56 +298,55 @@ async function loginRegularUser(email: string, password: string): Promise<LoginR
 		throw genericError
 	}
 
-	if (user.lockedUntil !== null && user.lockedUntil !== undefined && user.lockedUntil > new Date())
-	{
-		throw genericError
-	}
-
-	applyAttemptDecay(user)
+	applyAttemptReset(user)
 
 	const valid = await user.comparePassword(password)
 
-	if (!valid)
+	if (valid)
+	{
+		user.loginAttempts     = 0
+		user.lockedUntil       = null
+		user.lastFailedLoginAt = null
+		user.lastLoginAt       = new Date()
+
+		const accessToken  = issueAccessToken(claimsFromUser(user))
+		const refreshToken = issueRefreshToken()
+
+		if (!user.refreshTokens)
+		{
+			user.refreshTokens = []
+		}
+
+		user.refreshTokens.push(hashToken(refreshToken))
+		if (user.refreshTokens.length > 5)
+		{
+			user.refreshTokens.shift()
+		}
+
+		await user.save()
+
+		const result        = createLoginResult()
+		result.accessToken  = accessToken
+		result.refreshToken = refreshToken
+		result.user         = safeUserFromUser(user)
+		return result
+	}
+
+	const now     = new Date()
+	const retryAt = backoffRetryAt(user)
+
+	if (retryAt === null || now >= retryAt)
 	{
 		user.loginAttempts    += 1
-		user.lastFailedLoginAt = new Date()
-		if (user.loginAttempts >= MAX_ATTEMPTS)
-		{
-			user.lockedUntil = new Date(Date.now() + LOCK_DURATION)
-		}
+		user.lastFailedLoginAt = now
+		user.lockedUntil       = backoffRetryAt(user)
 		await user.save()
-		throw genericError
 	}
 
-	user.loginAttempts     = 0
-	user.lockedUntil       = null
-	user.lastFailedLoginAt = null
-	user.lastLoginAt       = new Date()
-
-	const accessToken  = issueAccessToken(claimsFromUser(user))
-	const refreshToken = issueRefreshToken()
-
-	if (!user.refreshTokens)
-	{
-		user.refreshTokens = []
-	}
-
-	user.refreshTokens.push(hashToken(refreshToken))
-	if (user.refreshTokens.length > 5)
-	{
-		user.refreshTokens.shift()
-	}
-
-	await user.save()
-
-	const result        = createLoginResult()
-	result.accessToken  = accessToken
-	result.refreshToken = refreshToken
-	result.user         = safeUserFromUser(user)
-	return result
+	throw genericError
 }
 
-// Authenticates an admin user against the AdminUser collection, enforcing lockout policy, and returns a LoginResult.
+// Authenticates an admin user against the AdminUser collection with exponential backoff, and returns a LoginResult.
 async function loginAdminUser(email: string, password: string, companyId: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
@@ -339,51 +357,50 @@ async function loginAdminUser(email: string, password: string, companyId: string
 		throw genericError
 	}
 
-	if (admin.lockedUntil !== null && admin.lockedUntil > new Date())
-	{
-		throw genericError
-	}
-
-	applyAttemptDecay(admin)
+	applyAttemptReset(admin)
 
 	const valid = await admin.comparePassword(password)
 
-	if (!valid)
+	if (valid)
+	{
+		admin.loginAttempts     = 0
+		admin.lockedUntil       = null
+		admin.lastFailedLoginAt = null
+		admin.lastLoginAt       = new Date()
+
+		const accessToken  = issueAccessToken(claimsFromAdminUser(admin))
+		const refreshToken = issueRefreshToken()
+
+		admin.refreshTokens.push(hashToken(refreshToken))
+		if (admin.refreshTokens.length > 5)
+		{
+			admin.refreshTokens.shift()
+		}
+
+		await admin.save()
+
+		const result        = createLoginResult()
+		result.accessToken  = accessToken
+		result.refreshToken = refreshToken
+		result.user         = safeUserFromAdminUser(admin)
+		return result
+	}
+
+	const now     = new Date()
+	const retryAt = backoffRetryAt(admin)
+
+	if (retryAt === null || now >= retryAt)
 	{
 		admin.loginAttempts    += 1
-		admin.lastFailedLoginAt = new Date()
-		if (admin.loginAttempts >= MAX_ATTEMPTS)
-		{
-			admin.lockedUntil = new Date(Date.now() + LOCK_DURATION)
-		}
+		admin.lastFailedLoginAt = now
+		admin.lockedUntil       = backoffRetryAt(admin)
 		await admin.save()
-		throw genericError
 	}
 
-	admin.loginAttempts     = 0
-	admin.lockedUntil       = null
-	admin.lastFailedLoginAt = null
-	admin.lastLoginAt       = new Date()
-
-	const accessToken  = issueAccessToken(claimsFromAdminUser(admin))
-	const refreshToken = issueRefreshToken()
-
-	admin.refreshTokens.push(hashToken(refreshToken))
-	if (admin.refreshTokens.length > 5)
-	{
-		admin.refreshTokens.shift()
-	}
-
-	await admin.save()
-
-	const result        = createLoginResult()
-	result.accessToken  = accessToken
-	result.refreshToken = refreshToken
-	result.user         = safeUserFromAdminUser(admin)
-	return result
+	throw genericError
 }
 
-// Authenticates a company user membership against the CompanyUser collection, enforcing lockout policy, and returns a LoginResult.
+// Authenticates a company user membership against the CompanyUser collection with exponential backoff, and returns a LoginResult.
 async function loginCompanyUser(email: string, password: string, companyId: string): Promise<LoginResult>
 {
 	const genericError = new Error('Invalid credentials')
@@ -394,48 +411,47 @@ async function loginCompanyUser(email: string, password: string, companyId: stri
 		throw genericError
 	}
 
-	if (member.lockedUntil !== null && member.lockedUntil > new Date())
-	{
-		throw genericError
-	}
-
-	applyAttemptDecay(member)
+	applyAttemptReset(member)
 
 	const valid = await member.comparePassword(password)
 
-	if (!valid)
+	if (valid)
+	{
+		member.loginAttempts     = 0
+		member.lockedUntil       = null
+		member.lastFailedLoginAt = null
+		member.lastLoginAt       = new Date()
+
+		const accessToken  = issueAccessToken(claimsFromCompanyUser(member))
+		const refreshToken = issueRefreshToken()
+
+		member.refreshTokens.push(hashToken(refreshToken))
+		if (member.refreshTokens.length > 5)
+		{
+			member.refreshTokens.shift()
+		}
+
+		await member.save()
+
+		const result        = createLoginResult()
+		result.accessToken  = accessToken
+		result.refreshToken = refreshToken
+		result.user         = safeUserFromCompanyUser(member)
+		return result
+	}
+
+	const now     = new Date()
+	const retryAt = backoffRetryAt(member)
+
+	if (retryAt === null || now >= retryAt)
 	{
 		member.loginAttempts    += 1
-		member.lastFailedLoginAt = new Date()
-		if (member.loginAttempts >= MAX_ATTEMPTS)
-		{
-			member.lockedUntil = new Date(Date.now() + LOCK_DURATION)
-		}
+		member.lastFailedLoginAt = now
+		member.lockedUntil       = backoffRetryAt(member)
 		await member.save()
-		throw genericError
 	}
 
-	member.loginAttempts     = 0
-	member.lockedUntil       = null
-	member.lastFailedLoginAt = null
-	member.lastLoginAt       = new Date()
-
-	const accessToken  = issueAccessToken(claimsFromCompanyUser(member))
-	const refreshToken = issueRefreshToken()
-
-	member.refreshTokens.push(hashToken(refreshToken))
-	if (member.refreshTokens.length > 5)
-	{
-		member.refreshTokens.shift()
-	}
-
-	await member.save()
-
-	const result        = createLoginResult()
-	result.accessToken  = accessToken
-	result.refreshToken = refreshToken
-	result.user         = safeUserFromCompanyUser(member)
-	return result
+	throw genericError
 }
 
 // Dispatches the login request to the correct handler based on the requested role.
