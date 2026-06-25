@@ -95,7 +95,7 @@ function createLookupAdminCompaniesResult(): LookupAdminCompaniesResult
 export async function lookupAdminCompanies(email: string): Promise<LookupAdminCompaniesResult>
 {
 	const result    = createLookupAdminCompaniesResult()
-	const adminList = await AdminUser.find({ email: email.toLowerCase().trim() }).select('companyId').lean()
+	const adminList = await AdminUser.find({ email: email.trim() }).select('companyId').lean()
 
 	if (adminList.length === 0) return result
 
@@ -125,7 +125,7 @@ export async function lookupAdminCompanies(email: string): Promise<LookupAdminCo
 export async function lookupUserCompanies(email: string): Promise<LookupAdminCompaniesResult>
 {
 	const result   = createLookupAdminCompaniesResult()
-	const userList = await CompanyUser.find({ email: email.toLowerCase().trim() }).select('companyId').lean()
+	const userList = await CompanyUser.find({ email: email.trim() }).select('companyId').lean()
 
 	if (userList.length === 0) return result
 

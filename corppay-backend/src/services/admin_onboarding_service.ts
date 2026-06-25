@@ -115,7 +115,7 @@ export async function completeOnboarding
 		return result
 	}
 
-	const existingAdmin = await AdminUser.findOne({ email: pending.email.toLowerCase(), companyId: pending.companyId })
+	const existingAdmin = await AdminUser.findOne({ email: pending.email, companyId: pending.companyId })
 	if (existingAdmin !== null)
 	{
 		result.reason = 'An admin account for this email already exists.'
@@ -126,7 +126,7 @@ export async function completeOnboarding
 
 	await AdminUser.create
 	({
-		email:        pending.email.toLowerCase(),
+		email:        pending.email,
 		passwordHash,
 		ssmNumber:    pending.ssmNumber.trim().toUpperCase(),
 		companyId:    pending.companyId,

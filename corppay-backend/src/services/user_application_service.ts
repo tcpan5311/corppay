@@ -35,10 +35,10 @@ export function createRegisterUserApplicationPayload(): RegisterUserApplicationP
 	}
 }
 
-// Returns the application record whose email matches the given value case-insensitively, or null if not found.
+// Returns the application record whose email matches the given value, or null if not found.
 export async function findApplicationByEmail(email: string): Promise<IUserApplication | null>
 {
-	const normalized = email.trim().toLowerCase()
+	const normalized = email.trim()
 	return UserApplication.findOne({ email: normalized })
 }
 
@@ -74,7 +74,7 @@ export async function registerUserApplication(payload: RegisterUserApplicationPa
 		throw new Error('A valid target company is required.')
 	}
 
-	const normalizedEmail = payload.email.trim().toLowerCase()
+	const normalizedEmail = payload.email.trim()
 	const existing        = await UserApplication.findOne({ email: normalizedEmail })
 
 	if (existing !== null)

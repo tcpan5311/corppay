@@ -37,7 +37,7 @@ function extractRefreshToken(body: Record<string, unknown>, headers: Record<stri
 router.post('/lookup', loginLimiter, async (request: Request, response: Response) =>
 {
 	const rawBody = request.body as Record<string, unknown>
-	const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim().toLowerCase() : ''
+	const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim() : ''
 
 	if (email === '')
 	{
@@ -60,7 +60,7 @@ router.post('/lookup', loginLimiter, async (request: Request, response: Response
 router.post('/lookup-user', loginLimiter, async (request: Request, response: Response) =>
 {
 	const rawBody = request.body as Record<string, unknown>
-	const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim().toLowerCase() : ''
+	const email   = typeof rawBody['email'] === 'string' ? rawBody['email'].trim() : ''
 
 	if (email === '')
 	{

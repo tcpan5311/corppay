@@ -51,7 +51,7 @@ const UserApplicationSchema = new Schema<IUserApplication>
 		dateOfBirth:        { type: String, required: true, trim: true },
 		nationality:        { type: String, required: true, trim: true },
 		gender:             { type: String, enum: ['male', 'female'], required: true },
-		email:              { type: String, required: true, lowercase: true, trim: true },
+		email:              { type: String, required: true, trim: true },
 		mobileNumber:       { type: String, required: true, trim: true },
 		fullAddress:        { type: String, required: true, trim: true },
 		documentType:       { type: String, enum: ['passport', 'national_id', 'drivers_license'], required: true },

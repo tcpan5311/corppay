@@ -23,7 +23,7 @@ export interface ICompanyUser extends Document
 const CompanyUserSchema = new Schema<ICompanyUser>
 (
 	{
-		email:             { type: String,   required: true, lowercase: true, trim: true },
+		email:             { type: String,   required: true, trim: true },
 		passwordHash:      { type: String,   required: true,  select: false },
 		companyId:         { type: Schema.Types.ObjectId, ref: 'Company', required: true },
 		applicationId:     { type: Schema.Types.ObjectId, ref: 'UserApplication', required: true },

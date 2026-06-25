@@ -54,7 +54,7 @@ function createSavePendingResult(): SavePendingResult
 // Returns an active (non-expired, non-verified) pending registration for the given email, or null if none exists.
 export async function findActivePendingByEmail(email: string): Promise<IPendingUserRegistration | null>
 {
-	const normalized = email.trim().toLowerCase()
+	const normalized = email.trim()
 	return PendingUserRegistration.findOne({
 		email:     normalized,
 		status:    'pending',

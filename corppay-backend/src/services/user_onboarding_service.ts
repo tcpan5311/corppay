@@ -120,7 +120,7 @@ export async function completeUserOnboarding
 
 	const existingUser = await CompanyUser.findOne
 	({
-		email:     pending.email.toLowerCase(),
+		email:     pending.email,
 		companyId: pending.companyId,
 	})
 
@@ -134,7 +134,7 @@ export async function completeUserOnboarding
 
 	await CompanyUser.create
 	({
-		email:         pending.email.toLowerCase(),
+		email:         pending.email,
 		passwordHash,
 		companyId:     pending.companyId,
 		applicationId: pending.applicationId,

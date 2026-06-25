@@ -21,7 +21,7 @@ export interface IAdminUser extends Document
 const AdminUserSchema = new Schema<IAdminUser>
 (
 	{
-		email:             { type: String,   required: true, lowercase: true, trim: true },
+		email:             { type: String,   required: true, trim: true },
 		passwordHash:      { type: String,   required: true,  select: false },
 		ssmNumber:         { type: String,   required: true, uppercase: true, trim: true },
 		companyId:         { type: Schema.Types.ObjectId, ref: 'Company', required: true },

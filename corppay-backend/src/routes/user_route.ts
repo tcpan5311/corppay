@@ -238,7 +238,7 @@ router.post('/initiate-register', companyRateLimit, uploadFields, async (req: Re
 		return res.status(400).json({ error: 'Identity document is required.' })
 	}
 
-	const normalizedEmail = values.email.trim().toLowerCase()
+	const normalizedEmail = values.email.trim()
 
 	const targetCompany = await Company.findById(values.targetCompanyId)
 

@@ -1,2 +1,0 @@
-1) Email addresses should be treated as case-sensitive during authentication (e.g., User@Email.com and user@email.com are considered different identifiers).
-2) Only failed login attempts should contribute to rate limiting; successful login attempts must not be included in rate limiting.
